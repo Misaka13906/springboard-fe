@@ -5,9 +5,9 @@
       <view class="user-info">
         <image class="avatar" src="/static/icons/app-logo.png" mode="aspectFit"></image>
         <view class="user-details">
-          <text class="username">Springbroad</text>
-          <!-- TODO: Fetch and display actual user info -->
-          <text class="uid">uid: loading...</text>
+          <text class="username">{{ username }}</text>
+          <!-- Display uid ref -->
+          <text class="uid">uid: {{ uid }}</text>
         </view>
       </view>
       <view class="actions">
@@ -63,18 +63,32 @@ import { ref, onMounted } from 'vue';
 import Tabbar from '../../components/tabbar/tabbar.vue';
 import { fetchMyPortfolios, fetchHistoryTemplates } from '../../api/portfolio';
 import type { GetMyPortfolioResponseItem, GetHistoryTemplatesResponseItem } from '../../types/api';
-import { login } from '../../api/auth'; // Import login function for testing
 
 const portfolioItems = ref<GetMyPortfolioResponseItem[]>([]);
 const historyItems = ref<GetHistoryTemplatesResponseItem[]>([]);
 const loadingPortfolios = ref(true);
 const loadingHistory = ref(true);
+const username = ref('Loading...'); // Ref for username
+const uid = ref('loading...'); // Ref for uid (still needs API)
 
 onMounted(async () => {
+  // Load username from storage
   try {
-    await login();
-    console.log('Login successful or token already valid.');
+    const storedUsername = uni.getStorageSync('username');
+    if (storedUsername) {
+      username.value = storedUsername;
+    } else {
+      username.value = '游客'; // Default if not found
+    }
+    // TODO: Fetch actual UID from a user profile API endpoint
+    // For now, we'll leave uid as 'loading...' or a placeholder
+    // uid.value = fetchedUid;
+  } catch (e) {
+    console.error('Failed to load username from storage:', e);
+    username.value = 'Error';
+  }
 
+  try {
     // Fetch data in parallel
     loadingPortfolios.value = true;
     loadingHistory.value = true;

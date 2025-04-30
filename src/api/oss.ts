@@ -104,16 +104,17 @@ const getOssClient = async (): Promise<OSS> => {
 };
 
 /**
- * Uploads a file (Blob or File) to OSS.
- * @param file The file or blob to upload.
+ * Uploads a file to OSS.
+ * @param filePath The file path to upload.
  * @param objectKey The full path and name for the object in OSS (e.g., 'user/avatars/image.jpg').
  * @returns The result from OSS client.put.
  */
-export const uploadFile = async (file: Blob | File, objectKey: string): Promise<OSS.PutObjectResult> => {
+export const uploadFile = async (filePath: string, objectKey: string): Promise<OSS.PutObjectResult> => {
   console.log(`[OSS Upload] Starting upload for key: ${objectKey}`);
   try {
     const client = await getOssClient();
-    const result = await client.put(objectKey, file);
+    // Pass the file path directly to client.put for Mini Program environments
+    const result = await client.put(objectKey, filePath);
     console.log(`[OSS Upload] Success for key: ${objectKey}`, result);
     return result;
   } catch (error) {
@@ -124,7 +125,7 @@ export const uploadFile = async (file: Blob | File, objectKey: string): Promise<
         cachedCredentials = null; // Force refresh
         try {
             const client = await getOssClient();
-            const result = await client.put(objectKey, file);
+            const result = await client.put(objectKey, filePath);
             console.log(`[OSS Upload] Retry Success for key: ${objectKey}`, result);
             return result;
         } catch (retryError) {
@@ -253,7 +254,7 @@ export const getDownloadUrl = async (objectKey: string, filename?: string, optio
  * Uploads a file associated with a Work item.
  * Determines the object key based on portfolio UID, project UID, and work UID/filename.
  *
- * @param file The file to upload (e.g., from uni.chooseImage).
+ * @param filePath The file path to upload.
  * @param portfolioUid The UID of the portfolio.
  * @param projectUid The UID of the project this work belongs to.
  * @param workUid The UID of the work item (or a unique identifier for the file).
@@ -261,7 +262,7 @@ export const getDownloadUrl = async (objectKey: string, filename?: string, optio
  * @returns The generated OSS object key.
  */
 export const uploadWorkFile = async (
-    file: File | Blob, // Or the specific type returned by uni.chooseImage/uploadFile
+    filePath: string, // Changed from File | Blob to string
     portfolioUid: string,
     projectUid: string,
     workUid: string, // Or maybe use a timestamp/random string if work UID isn't known yet
@@ -274,7 +275,7 @@ export const uploadWorkFile = async (
     // Adjust this structure as needed!
     const objectKey = `portfolios/${portfolioUid}/projects/${projectUid}/works/${workUid}${fileSuffix}`;
 
-    await uploadFile(file, objectKey);
+    await uploadFile(filePath, objectKey); // Pass filePath
     return objectKey; // Return the key so it can be saved in the Work data
 };
 

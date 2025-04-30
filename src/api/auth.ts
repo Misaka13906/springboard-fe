@@ -1,6 +1,48 @@
 import { request } from './request';
 // Import specific types
-import type { LoginResponseData, RefreshTokenResponseData } from '../types/api';
+// Added App types
+import type { LoginResponseData, RefreshTokenResponseData, AppRegisterRequest, AppRegisterResponse, AppLoginRequest, AppLoginResponse } from '../types/api';
+
+/**
+ * Logs in the user using username and password for App.
+ * Stores both access_token and refresh_token upon successful login.
+ * POST /api/login/app
+ * @param payload - Username and password.
+ * @returns Promise<LoginResponseData> The login response data.
+ */
+export const loginApp = (payload: AppLoginRequest): Promise<LoginResponseData> => {
+  return new Promise((resolve, reject) => {
+    request<LoginResponseData>({ // Expect LoginResponseData based on AppLoginResponse
+      url: '/login/app',
+      method: 'POST',
+      data: payload,
+      // Explicitly remove Authorization header for login request
+      header: { 'Authorization': null }
+    })
+      .then(data => handleLoginResponse(data, resolve, reject)) // Reuse token handling logic
+      .catch(error => {
+        console.error('App login failed:', error);
+        reject(error);
+      });
+  });
+};
+
+/**
+ * Registers a new user for the App.
+ * POST /api/register/app
+ * @param payload - Username and password.
+ * @returns Promise<null> Resolves on success.
+ */
+export const registerApp = (payload: AppRegisterRequest): Promise<null> => {
+    return request<null>({ // Expecting null data on success based on AppRegisterResponse
+      url: '/register/app',
+      method: 'POST',
+      data: payload,
+      // Explicitly remove Authorization header for register request
+      header: { 'Authorization': null }
+    });
+};
+
 
 /**
  * Logs in the user. Attempts to use WeChat's code for login first.
@@ -9,7 +51,8 @@ import type { LoginResponseData, RefreshTokenResponseData } from '../types/api';
  * Stores both access_token and refresh_token upon successful login.
  * @returns Promise<LoginResponseData> The login response data.
  */
-export const login = (): Promise<LoginResponseData> => {
+/* // Commenting out WeChat login as requested
+export const loginInWeixin = (): Promise<LoginResponseData> => {
   return new Promise((resolve, reject) => {
     // 1. Attempt to get the real WeChat login code
     uni.login({
@@ -36,8 +79,10 @@ export const login = (): Promise<LoginResponseData> => {
     });
   });
 };
+*/
 
 // Internal function to handle login with mock OpenID
+/* // Commenting out mock login as it was part of WeChat login flow
 const loginWithMockIdInternal = (resolve: (value: LoginResponseData | PromiseLike<LoginResponseData>) => void, reject: (reason?: any) => void) => {
   const mockOpenId = `mock_openid_${Date.now()}_${Math.random().toString(36).substring(2)}`;
   console.log('Using mock OpenID for login:', mockOpenId);
@@ -52,6 +97,7 @@ const loginWithMockIdInternal = (resolve: (value: LoginResponseData | PromiseLik
       reject(error); // Reject the main promise if mock login also fails
     });
 };
+*/
 
 // Helper function to process login response and store tokens
 const handleLoginResponse = (data: LoginResponseData, resolve: (value: LoginResponseData | PromiseLike<LoginResponseData>) => void, reject: (reason?: any) => void) => {

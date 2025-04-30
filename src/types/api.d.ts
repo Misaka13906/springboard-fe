@@ -158,27 +158,27 @@ export type SavePortfolioResponse = ApiResult<SavePortfolioResponseData>;
  * Note: Assumes API returns a simplified structure with 'oss_key' for preview.
  * The main Template interface uses 'font_oss_key' and 'pages'.
  */
-export interface GetAllTemplatesResponseItem {
-  uid: string;
-  name: string;
-  oss_key: string;
-  // Add CreatedAt if it exists in the actual response based on be-interface.md
-  CreatedAt?: string;
-}
+// export interface GetAllTemplatesResponseItem {
+//   uid: string;
+//   name: string;
+//   oss_key: string;
+//   // Add CreatedAt if it exists in the actual response based on be-interface.md
+//   CreatedAt?: string;
+// }
 
 // Define the full response type using ApiResult
-export type GetAllTemplatesResponse = ApiResult<GetAllTemplatesResponseItem[]>;
+export type GetAllTemplatesResponse = ApiResult<Template[]>;
 
 /**
  * Response structure for getting hot templates.
   */
-export interface GetHotTemplatesResponseItem {
-  uid: string;
-  name: string;
-  oss_key: string;
-  CreatedAt: string;
-}
-export type GetHotTemplatesResponse = ApiResult<GetHotTemplatesResponseItem[]>;
+// export interface GetHotTemplatesResponseItem {
+//   uid: string;
+//   name: string;
+//   oss_key: string;
+//   CreatedAt: string;
+// }
+export type GetHotTemplatesResponse = ApiResult<Template[]>;
 
 /**
  * Response structure for getting my portfolios.
@@ -231,6 +231,34 @@ export interface GetCredentialsResponseData {
     SecurityToken: string;
 }
 export type GetCredentialsResponse = ApiResult<GetCredentialsResponseData>;
+
+/**
+ * Request body for app registration (/register/app)
+ */
+export interface AppRegisterRequest {
+    username: string;
+    password: string;
+}
+
+/**
+ * Response structure for app registration.
+ * Assuming data is null on success based on typical registration patterns.
+ */
+export type AppRegisterResponse = ApiResult<null>;
+
+/**
+ * Request body for app login (/login/app)
+ */
+export interface AppLoginRequest {
+    username: string;
+    password: string;
+}
+
+/**
+ * Response structure for app login.
+ * Matches the provided structure with access and refresh tokens.
+ */
+export type AppLoginResponse = ApiResult<LoginResponseData>;
 
 /**
  * 登录接口响应数据结构 (/login)

@@ -1,9 +1,16 @@
 {
 	"pages": [
 		{
+			"path": "pages/profile/login",
+			"style": {
+				"navigationBarTitleText": "登录/注册"
+			}
+		},
+		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationStyle": "custom"
+				"navigationStyle": "custom",
+				"enablePullDownRefresh": true
 			}
 		},
 		{

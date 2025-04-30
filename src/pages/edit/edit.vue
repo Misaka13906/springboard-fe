@@ -226,7 +226,7 @@ const addWork = async () => {
 
       // 3. Upload File
       const ossKey = await uploadWorkFile(
-        tempFile, // Pass the file object
+        filePath, // Pass the file path string
         portfolioId, // Use placeholder if new, actual UID if exists
         projectUid,
         workUid,

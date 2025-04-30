@@ -18,13 +18,16 @@
       </view>
       <scroll-view class="template-scroll" scroll-x="true" show-scrollbar="false">
         <view class="template-list">
+          <!-- Loading state for hot templates -->
+          <view v-if="loading" class="loading-state">加载中...</view>
           <view
+            v-else
             v-for="template in hotTemplates"
             :key="template.uid"
             class="template-item hot-item"
             @click="navigateToPreview(template.uid)"
           >
-            <image class="template-image hot-image" :src="template.oss_key" mode="aspectFill"></image>
+            <image class="template-image hot-image" :src="template.previewUrl" mode="aspectFill"></image>
             <!-- Optional: Add template name or other info -->
           </view>
         </view>
@@ -39,19 +42,26 @@
         <text class="section-subtitle">Springbroad精品模板</text>
       </view>
       <view class="template-grid">
+         <!-- Loading state for recommended templates -->
+         <view v-if="loading" class="loading-state">加载中...</view>
         <view
+          v-else
           v-for="template in recommendedTemplates"
           :key="template.uid"
           class="template-item recommended-item"
           @click="navigateToPreview(template.uid)"
         >
-          <image class="template-image recommended-image" :src="template.oss_key" mode="aspectFill"></image>
+          <image class="template-image recommended-image" :src="template.previewUrl" mode="aspectFill"></image>
            <!-- Optional: Add template name or other info -->
            <!-- <text class="template-name">{{ template.name }}</text> -->
         </view>
         <!-- Add placeholders for grid alignment -->
-        <view v-for="i in (2 - (recommendedTemplates.length % 2)) % 2" :key="'placeholder-' + i" class="template-item recommended-item placeholder"></view>
+        <view v-if="!loading" v-for="i in (2 - (recommendedTemplates.length % 2)) % 2" :key="'placeholder-' + i" class="template-item recommended-item placeholder"></view>
       </view>
+       <!-- Empty state -->
+       <view v-if="!loading && recommendedTemplates.length === 0" class="empty-state">
+         暂无推荐模板
+       </view>
     </view>
 
     <!-- Add the custom tab bar -->
@@ -68,16 +78,50 @@ import CustomNavbar from '../../components/custom-navbar/custom-navbar.vue'; // 
 import type { Template } from '../../types/api'; // Import Template type
 // Import API functions
 import { fetchHotTemplates, fetchAllTemplates } from '../../api/template';
-import { login } from '../../api/auth'; // Import login function for testing
+import { loginApp } from '../../api/auth'; // Import login function for testing
+// Import OSS function
+import { getPreviewUrl } from '../../api/oss';
+// Import onPullDownRefresh hook
+import { onPullDownRefresh } from '@dcloudio/uni-app';
+
+// Interface for template data with preview URL
+interface TemplateWithPreview extends Template {
+  previewUrl?: string;
+}
 
 // Template data refs
-const hotTemplates = ref<Template[]>([]);
-const recommendedTemplates = ref<Template[]>([]);
+const hotTemplates = ref<TemplateWithPreview[]>([]);
+const recommendedTemplates = ref<TemplateWithPreview[]>([]);
+const loading = ref(true); // Combined loading state
 
-onMounted(async () => {
+// Function to fetch preview URLs for templates
+const fetchPreviewUrls = async (templates: Template[]): Promise<TemplateWithPreview[]> => {
+  const templatesWithUrls = await Promise.all(
+    templates.map(async (template) => {
+      let previewUrl = '/static/images/template1.png'; // Default placeholder
+      const ossKey = template.pages?.[0]?.oss_key;
+      if (ossKey) {
+        try {
+          previewUrl = await getPreviewUrl(ossKey);
+        } catch (urlError) {
+          console.error(`Failed to get preview URL for template ${template.uid} (key: ${ossKey}):`, urlError);
+          // Keep the default placeholder URL on error
+        }
+      } else {
+        console.warn(`No oss_key found for cover page of template ${template.uid}`);
+      }
+      return { ...template, previewUrl };
+    })
+  );
+  return templatesWithUrls;
+};
+
+// Refactored function to fetch all template data
+const fetchTemplateData = async () => {
+  loading.value = true; // Start loading
   try {
-    await login();
-    console.log('Login successful or token already valid.');
+    // await loginApp(); // Keep commented out or handle login as needed
+    // console.log('Login successful or token already valid.');
 
     // Fetch templates in parallel
     const [hotData, allData] = await Promise.all([
@@ -85,17 +129,38 @@ onMounted(async () => {
       fetchAllTemplates()
     ]);
 
-    hotTemplates.value = hotData;
-    // Use all templates for recommended for now, maybe slice or filter later
-    recommendedTemplates.value = allData;
+    console.log('Fetched raw hot templates:', hotData);
+    console.log('Fetched raw recommended (all) templates:', allData);
 
-    console.log('Fetched hot templates:', hotTemplates.value);
-    console.log('Fetched recommended (all) templates:', recommendedTemplates.value);
+    // Fetch preview URLs for both sets of templates in parallel
+    const [hotTemplatesWithUrls, recommendedTemplatesWithUrls] = await Promise.all([
+        fetchPreviewUrls(hotData),
+        fetchPreviewUrls(allData) // Use allData for recommended
+    ]);
+
+    hotTemplates.value = hotTemplatesWithUrls;
+    recommendedTemplates.value = recommendedTemplatesWithUrls;
+
+    console.log('Processed hot templates with URLs:', hotTemplates.value);
+    console.log('Processed recommended templates with URLs:', recommendedTemplates.value);
 
   } catch (error) {
-    console.error('Failed to fetch templates or login:', error);
+    console.error('Failed to fetch templates or preview URLs:', error);
     uni.showToast({ title: '加载模板失败', icon: 'none' });
+  } finally {
+      loading.value = false; // End loading
+      uni.stopPullDownRefresh(); // Stop pull-down refresh animation
   }
+};
+
+onMounted(async () => {
+  await fetchTemplateData(); // Fetch data on initial mount
+});
+
+// Handle pull-down refresh
+onPullDownRefresh(async () => {
+  console.log('Pull down refresh triggered');
+  await fetchTemplateData(); // Re-fetch data on refresh
 });
 
 const navigateToPreview = (templateId: string) => {
@@ -244,6 +309,26 @@ const handleViewModeToggle = () => {
 }
 .text-area, .title {
     display: none; /* Hide the old title */
+}
+
+/* Add styles for loading and empty states if not already present */
+.loading-state, .empty-state {
+  text-align: center;
+  color: #999;
+  font-size: 28rpx;
+  padding: 40rpx 0;
+  width: 100%; /* Ensure it takes full width if needed */
+}
+
+/* Ensure loading state inside scroll-view works */
+.template-list .loading-state {
+    display: inline-block; /* Or flex if needed */
+    padding: 20rpx 40rpx;
+}
+
+/* Ensure loading/empty state inside grid works */
+.template-grid .loading-state, .template-grid .empty-state {
+    grid-column: 1 / -1; /* Span across all columns */
 }
 
 </style>
