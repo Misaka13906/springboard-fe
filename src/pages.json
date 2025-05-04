@@ -3,7 +3,8 @@
 		{
 			"path": "pages/profile/login",
 			"style": {
-				"navigationBarTitleText": "登录/注册"
+				"navigationBarTitleText": "登录/注册",
+				"enablePullDownRefresh": false
 			}
 		},
 		{
@@ -16,7 +17,8 @@
 		{
 			"path": "pages/profile/profile",
 			"style": {
-				"navigationBarTitleText": "我的"
+				"navigationBarTitleText": "我的",
+				"enablePullDownRefresh": false
 			}
 		},
 		{
@@ -48,6 +50,13 @@
 			"style": {
 				"navigationBarTitleText": "编辑作品集"
 			}
+		},
+		{
+			"path": "pages/feedback/new",
+			"style": {
+				"navigationBarTitleText": "问题反馈",
+				"enablePullDownRefresh": false
+			}
 		}
 	],
 	"globalStyle": {
@@ -58,18 +67,16 @@
 	},
 	"tabBar": {
 		"custom": true,
-		"color": "#8a8a8a",
-		"selectedColor": "#57DD00",
-		"backgroundColor": "#ffffff",
-		"borderStyle": "black",
+	// 	// "color": "#8a8a8a",
+	// 	// "selectedColor": "#57DD00",
+	// 	// "backgroundColor": "#ffffff",
+	// 	// "borderStyle": "black",
 		"list": [
 			{
-				"pagePath": "pages/index/index",
-				"text": "首页"
+				"pagePath": "pages/index/index"
 			},
 			{
-				"pagePath": "pages/profile/profile",
-				"text": "我的"
+				"pagePath": "pages/profile/profile"
 			}
 		]
 	}
