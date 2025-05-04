@@ -1,7 +1,16 @@
 <template>
   <view class="content index-page">
     <!-- Add the custom navbar component here -->
-    <custom-navbar />
+    <view class="custom-navbar" :style="{ paddingTop: statusBarHeight + 'px' }">
+      <!-- Content area with fixed height -->
+      <view class="navbar-content" :style="{ height: navBarHeight + 'px' }">
+        <image class="logo" src="/static/icons/head-logo.png" mode="aspectFit" />
+        <view class="navbar-actions">
+          <!-- Use image tag for icons in uni-app -->
+          <image class="icon" src="/static/icons/tips.svg" mode="aspectFit" @click="onTipsClick" />
+        </view>
+      </view>
+    </view>
 
     <!-- Header -->
     <!-- <view class="header">
@@ -67,14 +76,19 @@
     <!-- Add the custom tab bar -->
     <tabbar current-page="/pages/index/index" />
   </view>
+
+  <!-- Wrapper for the Popup -->
+  <view class="popup-overlay-wrapper" v-if="isPopupVisible">
+    <TipsPopup ref="tipsPopupRef" @close="handlePopupClose" />
+  </view>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue'; // Import watch
 // Import the custom tab bar component
 import Tabbar from '../../components/tabbar/tabbar.vue'; // Adjust path if necessary
 // Import the custom navbar component
-import CustomNavbar from '../../components/custom-navbar/custom-navbar.vue'; // Adjust path if necessary
+import TipsPopup from '@/components/tips-popup/TipsPopup.vue'; // Import the new popup component
 import type { Template } from '../../types/api'; // Import Template type
 // Import API functions
 import { fetchHotTemplates, fetchAllTemplates } from '../../api/template';
@@ -83,6 +97,37 @@ import { loginApp } from '../../api/auth'; // Import login function for testing
 import { getPreviewUrl } from '../../api/oss';
 // Import onPullDownRefresh hook
 import { onPullDownRefresh } from '@dcloudio/uni-app';
+
+// Get system info to determine heights
+const systemInfo = uni.getSystemInfoSync();
+const statusBarHeight = ref(systemInfo.statusBarHeight || 0); // Height of status bar
+const navBarHeight = ref(44); // Standard height for navbar content (adjust if needed)
+
+// Ref for the TipsPopup component
+const tipsPopupRef = ref<InstanceType<typeof TipsPopup> | null>(null);
+// Ensure isPopupVisible is initialized to false
+const isPopupVisible = ref(false);
+console.log('index.vue: isPopupVisible initialized to', isPopupVisible.value);
+
+// Watch for changes in isPopupVisible
+watch(isPopupVisible, (newValue, oldValue) => {
+  console.log(`index.vue: isPopupVisible changed from ${oldValue} to ${newValue}`);
+});
+
+// Function to handle tips icon click
+const onTipsClick = () => {
+  console.log('index.vue: onTipsClick called');
+  isPopupVisible.value = true;
+  if (tipsPopupRef.value) {
+      tipsPopupRef.value.open();
+  }
+};
+
+// Method to hide wrapper when popup closes
+const handlePopupClose = () => {
+  console.log('index.vue: handlePopupClose called');
+  isPopupVisible.value = false;
+};
 
 // Interface for template data with preview URL
 interface TemplateWithPreview extends Template {
@@ -154,7 +199,9 @@ const fetchTemplateData = async () => {
 };
 
 onMounted(async () => {
+  console.log('index.vue: onMounted hook started');
   await fetchTemplateData(); // Fetch data on initial mount
+  console.log('index.vue: onMounted hook finished');
 });
 
 // Handle pull-down refresh
@@ -182,6 +229,47 @@ const handleViewModeToggle = () => {
 </script>
 
 <style scoped>
+.custom-navbar {
+  background-color: #fff; /* Or your desired background */
+  box-sizing: border-box;
+  width: 100%;
+  /* The padding-top is set dynamically */
+  position: relative; /* Needed for potential z-index context */
+  z-index: 99; /* Ensure navbar is above other content but below popup */
+}
+
+.navbar-content {
+  display: flex;
+  align-items: center;
+  /* Change justification to start */
+  justify-content: flex-start;
+  padding: 0 30rpx 0 0; /* Keep right padding for the actions */
+  box-sizing: border-box;
+  /* The height is set dynamically */
+}
+
+.logo {
+  height: 36px; /* Keep fixed height */
+  width: 200rpx; /* Set an explicit width in rpx */
+  flex-shrink: 0; /* Keep this to prevent shrinking */
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  /* Push actions to the right */
+  margin-left: auto;
+}
+
+.icon {
+  width: 40rpx;
+  height: 40rpx;
+  /* Add margin if needed */
+  margin-left: 20rpx;
+}
+
+
+
 .index-page {
   background-color: #ffffff; /* White background for the page */
   min-height: 100vh;
@@ -331,4 +419,16 @@ const handleViewModeToggle = () => {
     grid-column: 1 / -1; /* Span across all columns */
 }
 
+.popup-overlay-wrapper {
+  position: fixed; /* Fixed position */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex; /* Use flex to center the child */
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(0, 0, 0, 0.4); /* Dimmed background */
+  z-index: 999; /* Ensure it's on top */
+}
 </style>
