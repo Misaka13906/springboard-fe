@@ -28,7 +28,7 @@
         src="/static/icons/send.svg"
         class="send-icon"
         mode="aspectFit"
-        @click="submitFeedback"
+        @tap="submitFeedback"
         :style="{ opacity: loading || !feedbackContent.trim() ? 0.5 : 1 }"
       ></image>
     </view>
@@ -75,7 +75,8 @@ const submitFeedback = async () => {
   } catch (error: any) {
     uni.hideLoading();
     console.error('Failed to submit feedback:', error);
-    uni.showToast({ title: error?.message || '提交失败，请稍后重试', icon: 'none' });
+    const displayMessage = error?.message || '提交失败，请稍后重试';
+    uni.showToast({ title: displayMessage, icon: 'none' });
   } finally {
     loading.value = false;
   }

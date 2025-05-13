@@ -1,7 +1,34 @@
 import { request } from './request';
 // Import specific types
 // Added App types
-import type { LoginResponseData, RefreshTokenResponseData, AppRegisterRequest, AppRegisterResponse, AppLoginRequest, AppLoginResponse } from '../types/api';
+
+export const LOGIN_PAGE_URL = '/pages/profile/login';
+export const AUTO_LOGIN_FAILED_FLAG = 'autoLoginFailedInSession'; // Export the flag
+
+/**
+ * Redirects the user to the login page.
+ * Optionally clears authentication tokens.
+ * @param clearTokens - Whether to clear access and refresh tokens from storage. Defaults to true.
+ */
+export const redirectToLogin = (clearTokens: boolean = true) => {
+  console.log(`[Auth] Redirecting to login page: ${LOGIN_PAGE_URL}. Clear tokens: ${clearTokens}`);
+  if (clearTokens) {
+    try {
+      uni.removeStorageSync('access_token');
+      uni.removeStorageSync('refresh_token');
+      console.log('[Auth] Tokens cleared due to redirection to login.');
+    } catch (e) {
+      console.error('[Auth] Failed to clear tokens during redirect:', e);
+    }
+  }
+  uni.reLaunch({
+    url: LOGIN_PAGE_URL,
+    fail: (err) => {
+      console.error(`[Auth] Failed to reLaunch to ${LOGIN_PAGE_URL}:`, err);
+      uni.showToast({ title: '页面跳转失败，请重试', icon: 'none' });
+    }
+  });
+};
 
 /**
  * Logs in the user using username and password for App.
@@ -10,18 +37,19 @@ import type { LoginResponseData, RefreshTokenResponseData, AppRegisterRequest, A
  * @param payload - Username and password.
  * @returns Promise<LoginResponseData> The login response data.
  */
-export const loginApp = (payload: AppLoginRequest): Promise<LoginResponseData> => {
+export const loginApp = (payload: apiType.AppLoginRequest): Promise<apiType.LoginResponseData> => {
   return new Promise((resolve, reject) => {
-    request<LoginResponseData>({ // Expect LoginResponseData based on AppLoginResponse
+    request<apiType.LoginResponseData>({ // Expect apiType.LoginResponseData based on AppLoginResponse
       url: '/login/app',
       method: 'POST',
       data: payload,
       // Explicitly remove Authorization header for login request
       header: { 'Authorization': null }
     })
-      .then(data => handleLoginResponse(data, resolve, reject)) // Reuse token handling logic
+      .then(data => handleLoginResponse(data, resolve, reject))
       .catch(error => {
-        console.error('App login failed:', error);
+        console.error('App登录接口请求失败:', error);
+        uni.showToast({ title: 'App登录失败，请稍后重试', icon: 'none', duration: 3000 });
         reject(error);
       });
   });
@@ -33,14 +61,18 @@ export const loginApp = (payload: AppLoginRequest): Promise<LoginResponseData> =
  * @param payload - Username and password.
  * @returns Promise<null> Resolves on success.
  */
-export const registerApp = (payload: AppRegisterRequest): Promise<null> => {
-    return request<null>({ // Expecting null data on success based on AppRegisterResponse
-      url: '/register/app',
-      method: 'POST',
-      data: payload,
-      // Explicitly remove Authorization header for register request
-      header: { 'Authorization': null }
-    });
+export const registerApp = (payload: apiType.AppRegisterRequest): Promise<null> => {
+  return request<null>({ // Expecting null data on success based on AppRegisterResponse
+    url: '/register/app',
+    method: 'POST',
+    data: payload,
+    // Explicitly remove Authorization header for register request
+    header: { 'Authorization': null }
+  }).catch(error => {
+    console.error('App注册接口请求失败:', error);
+    uni.showToast({ title: 'App注册失败，请稍后重试', icon: 'none', duration: 3000 });
+    throw error; // Re-throw to be caught by calling function
+  });
 };
 
 
@@ -51,74 +83,59 @@ export const registerApp = (payload: AppRegisterRequest): Promise<null> => {
  * Stores both access_token and refresh_token upon successful login.
  * @returns Promise<LoginResponseData> The login response data.
  */
-/* // Commenting out WeChat login as requested
-export const loginInWeixin = (): Promise<LoginResponseData> => {
+export const loginInWeixin = (): Promise<apiType.LoginResponseData> => {
   return new Promise((resolve, reject) => {
     // 1. Attempt to get the real WeChat login code
     uni.login({
       provider: 'weixin',
       success: (loginRes) => {
-        console.log('uni.login success, code:', loginRes.code);
+        console.log('uni.login 调用成功, code:', loginRes.code);
+        if (!loginRes.code) {
+          console.error('uni.login成功，但未返回code');
+          uni.showToast({ title: '微信登录凭证获取失败(无code)', icon: 'none', duration: 3000 });
+          reject(new Error('微信登录凭证获取失败(无code)'));
+          return;
+        }
         // 2. Send the code to the backend
-        request<LoginResponseData>({
+        request<apiType.LoginResponseData>({
           url: `/login?code=${loginRes.code}`, // Send code as query parameter
           method: 'POST',
+          header: { 'Authorization': null } // Ensure no old token is sent for login
         })
           .then(data => handleLoginResponse(data, resolve, reject))
           .catch(error => {
-            console.error('Backend login with code failed:', error);
-            // 3. Fallback to mock OpenID if backend login fails
-            loginWithMockIdInternal(resolve, reject);
+            console.error('后端用code登录接口请求失败:', error);
+            uni.showToast({ title: '微信登录请求后端失败，请稍后重试', icon: 'none', duration: 3000 });
+            reject(error);
           });
       },
       fail: (err) => {
-        console.error('uni.login failed:', err);
-        // 3. Fallback to mock OpenID if uni.login fails
-        loginWithMockIdInternal(resolve, reject);
+        console.error('uni.login 调用失败:', err);
+        uni.showToast({ title: '获取微信登录凭证失败，请稍后重试', icon: 'none', duration: 3000 });
+        reject(err);
       },
     });
   });
 };
-*/
-
-// Internal function to handle login with mock OpenID
-/* // Commenting out mock login as it was part of WeChat login flow
-const loginWithMockIdInternal = (resolve: (value: LoginResponseData | PromiseLike<LoginResponseData>) => void, reject: (reason?: any) => void) => {
-  const mockOpenId = `mock_openid_${Date.now()}_${Math.random().toString(36).substring(2)}`;
-  console.log('Using mock OpenID for login:', mockOpenId);
-
-  request<LoginResponseData>({
-    url: `/login?code=${mockOpenId}`, // Assuming the same endpoint can handle mock openid
-    method: 'POST',
-  })
-    .then(data => handleLoginResponse(data, resolve, reject))
-    .catch(error => {
-      console.error('Login with mock OpenID failed:', error);
-      reject(error); // Reject the main promise if mock login also fails
-    });
-};
-*/
 
 // Helper function to process login response and store tokens
-const handleLoginResponse = (data: LoginResponseData, resolve: (value: LoginResponseData | PromiseLike<LoginResponseData>) => void, reject: (reason?: any) => void) => {
-  console.log('call func \nLogin response data:', data);
+const handleLoginResponse = (data: apiType.LoginResponseData, resolve: (value: apiType.LoginResponseData | PromiseLike<apiType.LoginResponseData>) => void, reject: (reason?: any) => void) => {
+  console.log('后端登录响应数据:', data);
   if (data && data.access_token && data.refresh_token) {
     try {
       uni.setStorageSync('access_token', data.access_token);
       uni.setStorageSync('refresh_token', data.refresh_token); // Store refresh token
-      console.log('Tokens stored successfully.');
+      console.log('访问令牌和刷新令牌已成功存储.');
       resolve(data);
-    } catch (e) {
-      console.error('Failed to store tokens:', e);
-      reject(new Error('Failed to store tokens'));
+    } catch (e: any) {
+      console.error('存储令牌失败:', e);
+      uni.showToast({ title: '登录成功，但存储凭证失败', icon: 'none', duration: 3000 });
+      reject(new Error(`存储令牌失败: ${e?.errMsg || '本地存储失败'}`));
     }
   } else {
-    console.error('Login response missing tokens:', data);
-    // Don't reject here immediately if falling back from real code login,
-    // let the fallback mechanism handle it. If this is the mock login failing,
-    // then the final catch in loginWithMockIdInternal will reject.
-    // However, if the backend *successfully* responds but without tokens, it's an error.
-    reject(new Error('Invalid login response: missing tokens'));
+    console.error('登录响应无效或缺少令牌:', data);
+    uni.showToast({ title: '登录响应无效，缺少令牌', icon: 'none', duration: 3000 });
+    reject(new Error('登录响应无效: 缺少令牌'));
   }
 };
 
@@ -135,71 +152,61 @@ export const refreshAccessToken = (): Promise<string> => {
     try {
       refreshToken = uni.getStorageSync('refresh_token');
       currentAccessToken = uni.getStorageSync('access_token'); // Get current token for header
-    } catch (e) {
-      console.error('Failed to retrieve tokens from storage:', e);
-      return reject(new Error('Failed to retrieve tokens'));
+    } catch (e: any) {
+      console.error('从存储中检索令牌失败:', e);
+      uni.showToast({ title: '刷新令牌准备失败，请稍后重试', icon: 'none', duration: 3000 });
+      return reject(new Error(`从存储中检索令牌失败: ${e?.errMsg || '本地读取失败'}`));
     }
 
-    if (!refreshToken || !currentAccessToken) {
-      console.warn('Missing refresh token or access token for refresh attempt.');
-      return reject(new Error('Missing tokens for refresh'));
+    if (!refreshToken) { // currentAccessToken might be expired, but refreshToken is key
+      console.warn('缺少刷新令牌，无法刷新.');
+      // No toast here as this might be a normal flow if user is not logged in.
+      // The caller should handle this (e.g. redirect to login)
+      return reject(new Error('缺少刷新令牌'));
     }
-
-    // Note: The backend refresh endpoint requires the *current* (potentially expired)
-    // access token in the Authorization header and the refresh_token as a query parameter.
-    request<RefreshTokenResponseData>({
+    if (!currentAccessToken) {
+        console.warn('缺少当前访问令牌，刷新接口可能需要它.');
+        // Depending on backend, this might not be an error, but good to log.
+    }
+    
+    console.log('尝试刷新访问令牌...');
+    request<apiType.RefreshTokenResponseData>({
       url: '/refresh',
-      method: 'POST', // Assuming POST based on typical practices, adjust if needed
-      data: { // Send refresh_token as part of the request body based on Go code
+      method: 'POST', 
+      data: { 
         refresh_token: refreshToken,
       },
-      // The request function automatically adds the Authorization header with the current access_token
-      // We might need a way to bypass the standard token check *within* the request function
-      // for this specific call if the token is known expired, or ensure the backend
-      // specifically allows expired access tokens for the refresh endpoint.
-      // For now, assume the request function handles adding the current token header.
     })
       .then(data => {
         if (data && data.access_token) {
           try {
-            uni.setStorageSync('access_token', data.access_token); // Update access token
-            console.log('Access token refreshed successfully.');
+            uni.setStorageSync('access_token', data.access_token); 
+            console.log('访问令牌已成功刷新并存储.');
             resolve(data.access_token);
-          } catch (e) {
-            console.error('Failed to store refreshed access token:', e);
-            reject(new Error('Failed to store refreshed token'));
+          } catch (e: any) {
+            console.error('存储刷新的访问令牌失败:', e);
+            uni.showToast({ title: '刷新令牌成功，但存储失败', icon: 'none', duration: 3000 });
+            reject(new Error(`存储刷新的访问令牌失败: ${e?.errMsg || '本地存储失败'}`));
           }
         } else {
-          console.error('Refresh token response missing access_token:', data);
-          reject(new Error('Invalid refresh response: missing access_token'));
+          console.error('刷新令牌响应无效或缺少新的访问令牌:', data);
+          uni.showToast({ title: '刷新令牌响应无效', icon: 'none', duration: 3000 });
+          reject(new Error('刷新令牌响应无效: 缺少新的access_token'));
         }
       })
       .catch(error => {
-        console.error('Refresh token request failed:', error);
-        // If refresh fails (e.g., refresh token itself expired or invalid), clear tokens
+        console.error('刷新访问令牌接口请求失败:', error);
+        uni.showToast({ title: '刷新令牌失败，请稍后重试', icon: 'none', duration: 3000 });
+        
         try {
           uni.removeStorageSync('access_token');
           uni.removeStorageSync('refresh_token');
-          console.log('Cleared tokens due to refresh failure.');
-          // TODO: Redirect to login page
-          // uni.reLaunch({ url: '/pages/login/login' }); // Example redirect
-        } catch (e) {
-          console.error('Failed to clear tokens after refresh failure:', e);
+          console.log('因刷新失败，已清除本地令牌.');
+        } catch (e: any) {
+          console.error('刷新失败后清除本地令牌也失败:', e);
+          uni.showToast({ title: '刷新失败，清除本地凭证也失败', icon: 'none', duration: 3000 });
         }
-        reject(error); // Reject the promise so the original request knows refresh failed
+        reject(error); 
       });
   });
 };
-
-// Example usage (optional, can be called from a page like index.vue)
-/*
-login() // Use the new login function
-  .then(loginData => {
-    console.log('Login successful:', loginData);
-    // Navigate to another page or update UI
-  })
-  .catch(error => {
-    console.error('Login failed:', error);
-    // Show error message to the user
-  });
-*/

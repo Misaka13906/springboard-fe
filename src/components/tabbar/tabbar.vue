@@ -4,7 +4,7 @@
       class="tab-item"
       v-for="item in tabList"
       :key="item.pagePath"
-      @click="switchTab(item)"
+      @tap="switchTab(item)"
     >
       <image
         class="icon"
@@ -45,7 +45,7 @@ const tabList = ref<TabItem[]>([
     iconCurrent: 'index-current',
   },
   {
-    pagePath: '/pages/select/size', // Navigate to size selection page first
+    pagePath: '/pages/select/select', // Navigate to selection page first
     text: '添加',
     icon: 'add',
     iconCurrent: 'add', // 'add' might not have a 'current' state visually

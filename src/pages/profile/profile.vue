@@ -12,8 +12,8 @@
       </view>
       <view class="actions">
         <!-- Placeholder for icons -->
-        <img class="icon" src="/static/icons/moon.svg" mode="aspectFit" @click="switchTheme" />
-        <img class="icon" src="/static/icons/question.svg" mode="aspectFit" @click="feedback" />
+        <img class="icon" src="/static/icons/moon.svg" mode="aspectFit" @tap="switchTheme" />
+        <img class="icon" src="/static/icons/question.svg" mode="aspectFit" @tap="feedback" />
       </view>
     </view>
 
@@ -61,11 +61,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import Tabbar from '../../components/tabbar/tabbar.vue';
-import { fetchMyPortfolios, fetchHistoryTemplates } from '../../api/portfolio';
-import type { GetMyPortfolioResponseItem, GetHistoryTemplatesResponseItem } from '../../types/api';
+import { getMyPortfolios, getHistoryTemplates } from '../../api/portfolio';
 
-const portfolioItems = ref<GetMyPortfolioResponseItem[]>([]);
-const historyItems = ref<GetHistoryTemplatesResponseItem[]>([]);
+const portfolioItems = ref<apiType.GetMyPortfolioResponseItem[]>([]);
+const historyItems = ref<apiType.GetHistoryTemplatesResponseItem[]>([]);
 const loadingPortfolios = ref(true);
 const loadingHistory = ref(true);
 const username = ref('Loading...'); // Ref for username
@@ -82,7 +81,7 @@ onMounted(async () => {
     }
     // TODO: Fetch actual UID from a user profile API endpoint
     // For now, we'll leave uid as 'loading...' or a placeholder
-    // uid.value = fetchedUid;
+    // uid.value = getedUid;
   } catch (e) {
     console.error('Failed to load username from storage:', e);
     username.value = 'Error';
@@ -93,8 +92,8 @@ onMounted(async () => {
     loadingPortfolios.value = true;
     loadingHistory.value = true;
     const [portfolioData, historyData] = await Promise.all([
-      fetchMyPortfolios(),
-      fetchHistoryTemplates()
+      getMyPortfolios(),
+      getHistoryTemplates()
     ]);
 
     portfolioItems.value = portfolioData;
@@ -103,7 +102,7 @@ onMounted(async () => {
     console.log('Fetched history templates:', historyItems.value);
 
   } catch (error) {
-    console.error('Failed to fetch profile data or login:', error);
+    console.error('Failed to get profile data or login:', error);
     uni.showToast({ title: '加载数据失败', icon: 'none' });
   } finally {
     loadingPortfolios.value = false;
@@ -117,10 +116,9 @@ const switchTheme = () => {
 };
 
 const feedback = () => {
-  // TODO: Navigate to feedback page or open feedback modal
-  console.log('Feedback clicked');
-  // Example navigation:
-  // uni.navigateTo({ url: '/pages/feedback/feedback' });
+  uni.navigateTo({
+    url: '/pages/feedback/new'
+  });
 };
 
 </script>

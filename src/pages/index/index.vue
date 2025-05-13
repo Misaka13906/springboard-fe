@@ -7,7 +7,7 @@
         <image class="logo" src="/static/icons/head-logo.png" mode="aspectFit" />
         <view class="navbar-actions">
           <!-- Use image tag for icons in uni-app -->
-          <image class="icon" src="/static/icons/tips.svg" mode="aspectFit" @click="onTipsClick" />
+          <image class="icon" src="/static/icons/tips.svg" mode="aspectFit" @tap="onTipsClick" />
         </view>
       </view>
     </view>
@@ -34,7 +34,7 @@
             v-for="template in hotTemplates"
             :key="template.uid"
             class="template-item hot-item"
-            @click="navigateToPreview(template.uid)"
+            @tap="navigateToPreview(template.uid)"
           >
             <image class="template-image hot-image" :src="template.previewUrl" mode="aspectFill"></image>
             <!-- Optional: Add template name or other info -->
@@ -58,7 +58,7 @@
           v-for="template in recommendedTemplates"
           :key="template.uid"
           class="template-item recommended-item"
-          @click="navigateToPreview(template.uid)"
+          @tap="navigateToPreview(template.uid)"
         >
           <image class="template-image recommended-image" :src="template.previewUrl" mode="aspectFill"></image>
            <!-- Optional: Add template name or other info -->
@@ -85,16 +85,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'; // Import watch
-// Import the custom tab bar component
-import Tabbar from '../../components/tabbar/tabbar.vue'; // Adjust path if necessary
-// Import the custom navbar component
-import TipsPopup from '@/components/tips-popup/TipsPopup.vue'; // Import the new popup component
-import type { Template } from '../../types/api'; // Import Template type
+import Tabbar from '../../components/tabbar/tabbar.vue';
+import TipsPopup from '@/pages/index/components/TipsPopup.vue';
+// import type { base } from '../../types';
 // Import API functions
-import { fetchHotTemplates, fetchAllTemplates } from '../../api/template';
-import { loginApp } from '../../api/auth'; // Import login function for testing
-// Import OSS function
-import { getPreviewUrl } from '../../api/oss';
+import { getHotTemplatesWithPreview, getAllTemplatesWithPreview } from '../../api/template'; // New import
+import { loginInWeixin, AUTO_LOGIN_FAILED_FLAG, redirectToLogin, LOGIN_PAGE_URL } from '../../api/auth'; // Import login function & flag
+import { ApiErrorCodeTokenExpired, ApiErrorCodeAuthError } from '../../constants/api';
 // Import onPullDownRefresh hook
 import { onPullDownRefresh } from '@dcloudio/uni-app';
 
@@ -130,7 +127,7 @@ const handlePopupClose = () => {
 };
 
 // Interface for template data with preview URL
-interface TemplateWithPreview extends Template {
+interface TemplateWithPreview extends baseType.Template {
   previewUrl?: string;
 }
 
@@ -139,48 +136,17 @@ const hotTemplates = ref<TemplateWithPreview[]>([]);
 const recommendedTemplates = ref<TemplateWithPreview[]>([]);
 const loading = ref(true); // Combined loading state
 
-// Function to fetch preview URLs for templates
-const fetchPreviewUrls = async (templates: Template[]): Promise<TemplateWithPreview[]> => {
-  const templatesWithUrls = await Promise.all(
-    templates.map(async (template) => {
-      let previewUrl = '/static/images/template1.png'; // Default placeholder
-      const ossKey = template.pages?.[0]?.oss_key;
-      if (ossKey) {
-        try {
-          previewUrl = await getPreviewUrl(ossKey);
-        } catch (urlError) {
-          console.error(`Failed to get preview URL for template ${template.uid} (key: ${ossKey}):`, urlError);
-          // Keep the default placeholder URL on error
-        }
-      } else {
-        console.warn(`No oss_key found for cover page of template ${template.uid}`);
-      }
-      return { ...template, previewUrl };
-    })
-  );
-  return templatesWithUrls;
-};
-
-// Refactored function to fetch all template data
-const fetchTemplateData = async () => {
+// Refactored function to get all template data
+const getTemplateData = async (isPullDown: boolean = false) => {
   loading.value = true; // Start loading
   try {
     // await loginApp(); // Keep commented out or handle login as needed
     // console.log('Login successful or token already valid.');
 
     // Fetch templates in parallel
-    const [hotData, allData] = await Promise.all([
-      fetchHotTemplates(),
-      fetchAllTemplates()
-    ]);
-
-    console.log('Fetched raw hot templates:', hotData);
-    console.log('Fetched raw recommended (all) templates:', allData);
-
-    // Fetch preview URLs for both sets of templates in parallel
     const [hotTemplatesWithUrls, recommendedTemplatesWithUrls] = await Promise.all([
-        fetchPreviewUrls(hotData),
-        fetchPreviewUrls(allData) // Use allData for recommended
+      getHotTemplatesWithPreview(),
+      getAllTemplatesWithPreview()
     ]);
 
     hotTemplates.value = hotTemplatesWithUrls;
@@ -189,9 +155,65 @@ const fetchTemplateData = async () => {
     console.log('Processed hot templates with URLs:', hotTemplates.value);
     console.log('Processed recommended templates with URLs:', recommendedTemplates.value);
 
-  } catch (error) {
-    console.error('Failed to fetch templates or preview URLs:', error);
-    uni.showToast({ title: '加载模板失败', icon: 'none' });
+  } catch (error: any) {
+    console.error('Failed to get templates or preview URLs:', error);
+    // Check if the error is due to 401 or a specific business code for auth failure
+    const statusCode = error?.response?.statusCode;
+    const apiResponse = error?.response?.data as apiType.ApiResponse<any>;
+
+    if (statusCode === 401 || (apiResponse && apiResponse.code !== 200 && (apiResponse.message?.toLowerCase().includes('token') || apiResponse.code === ApiErrorCodeTokenExpired || apiResponse.code === ApiErrorCodeAuthError) )) {
+      console.log('[getTemplateData] Authentication error detected. Attempting auto-login for WeChat.');
+      // @ts-ignore
+      const systemInfo = uni.getSystemInfoSync();
+      const platform = systemInfo.uniPlatform;
+
+      if (platform === 'mp-weixin') {
+        try {
+          let autoLoginFailed = false;
+          try {
+            autoLoginFailed = uni.getStorageSync(AUTO_LOGIN_FAILED_FLAG);
+          } catch (e) {
+            console.warn('[getTemplateData] Failed to read autoLoginFailed flag:', e);
+          }
+
+          if (autoLoginFailed) {
+            console.log('[getTemplateData] Auto-login previously failed this session. Redirecting to login.');
+            try {
+              uni.removeStorageSync(AUTO_LOGIN_FAILED_FLAG); // Clear flag before redirecting
+            } catch (e) {
+              console.warn('[getTemplateData] Failed to remove autoLoginFailed flag during redirect:', e);
+            }
+            redirectToLogin(true);
+            return; // Exit early
+          }
+
+          console.log('[getTemplateData] Attempting WeChat auto-login...');
+          await loginInWeixin();
+          console.log('[getTemplateData] WeChat auto-login successful. Retrying data fetch...');
+          try {
+            uni.removeStorageSync(AUTO_LOGIN_FAILED_FLAG); // Clear the flag as login was successful
+          } catch (e) {
+            console.warn('[getTemplateData] Failed to remove autoLoginFailed flag after successful login:', e);
+          }
+          await getTemplateData(isPullDown); // Retry fetching data
+        } catch (loginError) {
+          console.error('[getTemplateData] WeChat auto-login failed:', loginError);
+          try {
+            uni.setStorageSync(AUTO_LOGIN_FAILED_FLAG, true); // Set flag on failure
+          } catch (e) {
+            console.warn('[getTemplateData] Failed to set autoLoginFailed flag after login error:', e);
+          }
+          redirectToLogin(true); // Redirect to login page if auto-login fails
+        }
+      } else {
+        // For non-WeChat platforms, or if auto-login is not applicable, redirect to login
+        console.log('[getTemplateData] Non-WeChat platform or auto-login not applicable. Redirecting to login.');
+        redirectToLogin(true);
+      }
+    } else {
+      // Handle other errors (e.g., network issues)
+      uni.showToast({ title: '加载模板失败，请稍后重试', icon: 'none' });
+    }
   } finally {
       loading.value = false; // End loading
       uni.stopPullDownRefresh(); // Stop pull-down refresh animation
@@ -200,14 +222,14 @@ const fetchTemplateData = async () => {
 
 onMounted(async () => {
   console.log('index.vue: onMounted hook started');
-  await fetchTemplateData(); // Fetch data on initial mount
+  await getTemplateData(); // Fetch data on initial mount
   console.log('index.vue: onMounted hook finished');
 });
 
 // Handle pull-down refresh
 onPullDownRefresh(async () => {
   console.log('Pull down refresh triggered');
-  await fetchTemplateData(); // Re-fetch data on refresh
+  await getTemplateData(true); // Re-get data on refresh, pass true for isPullDown
 });
 
 const navigateToPreview = (templateId: string) => {

@@ -1,11 +1,10 @@
 // src/api/request.ts
-import type { ApiResponse } from '../types/api.d.ts';
 // Import the actual constants from the new location
 import { ApiErrorCodeTokenExpired, ApiErrorCodeAuthError } from '../constants/api';
 // Import the refresh function, ensuring no circular dependency issues
 // If 'auth' imports 'request', we might need to move refreshAccessToken elsewhere or restructure.
 // Assuming it's safe for now.
-import { refreshAccessToken } from './auth';
+import { refreshAccessToken, redirectToLogin, LOGIN_PAGE_URL } from './auth';
 
 // Read Base URL from environment variable
 const BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -37,18 +36,6 @@ const getToken = (): string | null => {
   } catch (e) {
     console.error('Error getting token from storage:', e);
     return null;
-  }
-};
-
-const clearTokensAndRedirect = () => {
-  try {
-    uni.removeStorageSync('access_token');
-    uni.removeStorageSync('refresh_token');
-    console.log('Tokens cleared, redirecting to login.');
-    // TODO: Implement actual redirection logic
-    // Example: uni.reLaunch({ url: '' });
-  } catch (e) {
-    console.error('Failed to clear tokens or redirect:', e);
   }
 };
 
@@ -88,7 +75,7 @@ export const request = <T = any>(options: RequestOptions): Promise<T> => {
     // Proceed with making the actual request
     makeRequest<T>(options).then(resolve).catch(async (error) => {
         // Check if the error indicates an expired token and it's not a retry/refresh attempt
-        const apiResponse = error?.response?.data as ApiResponse<any>; // Extract response if available
+        const apiResponse = error?.response?.data as apiType.ApiResponse<any>; // Extract response if available
         const statusCode = error?.response?.statusCode; // HTTP status if available
 
         // Check for TokenExpired business code OR 401 Unauthorized HTTP status
@@ -121,7 +108,7 @@ export const request = <T = any>(options: RequestOptions): Promise<T> => {
                     console.error('[Token Refresh] Failed:', refreshError);
                     isRefreshing = false;
                     processPendingRequests(null, refreshError); // Notify queue about failure
-                    clearTokensAndRedirect(); // Clear tokens and redirect on refresh failure
+                    redirectToLogin(true); // Redirect and clear tokens
                     reject(refreshError); // Reject the original request's promise
                 }
             } else {
@@ -147,94 +134,95 @@ export const request = <T = any>(options: RequestOptions): Promise<T> => {
  * Internal function to make the actual uni.request call.
  */
 const makeRequest = <T = any>(options: RequestOptions): Promise<T> => {
-    return new Promise((resolve, reject) => {
-        // Ensure BASE_URL is defined before proceeding
-        if (!BASE_URL) {
-            return reject(new Error("API Base URL is not configured. Check environment variables."));
+  return new Promise((resolve, reject) => {
+    // Ensure BASE_URL is defined before proceeding
+    if (!BASE_URL) {
+      return reject(new Error("API Base URL is not configured. Check environment variables."));
+    }
+    const url = BASE_URL + options.url;
+    const method = options.method || 'GET';
+    const header = {
+      'Content-Type': 'application/json',
+      ...options.header,
+    };
+
+    // Add Authorization header if token exists and not explicitly removed
+    if (!header.hasOwnProperty('Authorization') || header['Authorization'] !== null) {
+      const token = getToken();
+      if (token) {
+        header['Authorization'] = token;
+      }
+    }
+       // Remove null Authorization header if it was set explicitly to null
+    if (header['Authorization'] === null) {
+      delete header['Authorization'];
+    }
+
+
+    console.log(`[Request] ${method} ${url}`, { data: options.data, params: options.params, header: header }); // Added params logging
+
+    uni.request({
+      ...options,
+      url,
+      method,
+      header,
+      success: (res) => {
+        console.log(`[Response] ${method} ${url}`, { statusCode: res.statusCode, data: res.data });
+
+        // **Moved the declaration and check outside the main success/error logic**
+        const apiResponse = res.data as apiType.ApiResponse<T>; // Declare and cast ONCE
+        const statusCode = res.statusCode;
+
+          // Check for token expiration or specific auth error indicating expiration
+          // This check is primarily for logging/debugging here, the main refresh logic is in the outer catch
+        if (
+            ( (apiResponse?.code === ApiErrorCodeTokenExpired) || (statusCode === 401 && apiResponse?.code === ApiErrorCodeAuthError) )
+        ) {
+            console.log('[Debug] Token might be expired based on this response.');
         }
-        const url = BASE_URL + options.url;
-        const method = options.method || 'GET';
-        const header = {
-            'Content-Type': 'application/json',
-            ...options.header,
-        };
 
-        // Add Authorization header if token exists and not explicitly removed
-        if (!header.hasOwnProperty('Authorization') || header['Authorization'] !== null) {
-            const token = getToken();
-            if (token) {
-                header['Authorization'] = token;
-            }
-        }
-         // Remove null Authorization header if it was set explicitly to null
-        if (header['Authorization'] === null) {
-            delete header['Authorization'];
+          // Main success/error handling
+        if (statusCode !== 200) {
+          uni.showToast({ title: '网络连接错误，请稍后重试', icon: 'none', duration: 3000 });
+          return reject({ message: `HTTP Error ${statusCode}`, response: res });
         }
 
-
-        console.log(`[Request] ${method} ${url}`, { data: options.data, params: options.params, header: header }); // Added params logging
-
-        uni.request({
-            ...options,
-            url,
-            method,
-            header,
-            success: (res) => {
-                console.log(`[Response] ${method} ${url}`, { statusCode: res.statusCode, data: res.data });
-
-                // **Moved the declaration and check outside the main success/error logic**
-                const apiResponse = res.data as ApiResponse<T>; // Declare and cast ONCE
-                const statusCode = res.statusCode;
-
-                // Check for token expiration or specific auth error indicating expiration
-                // This check is primarily for logging/debugging here, the main refresh logic is in the outer catch
-                if (
-                    ( (apiResponse?.code === ApiErrorCodeTokenExpired) || (statusCode === 401 && apiResponse?.code === ApiErrorCodeAuthError) )
-                ) {
-                  console.log('[Debug] Token might be expired based on this response.');
-                }
-
-                // Main success/error handling
-                if (statusCode !== 200) {
-                    uni.showToast({ title: `网络错误 (${statusCode})`, icon: 'none' });
-                    return reject({ message: `HTTP Error ${statusCode}`, response: res });
-                }
-
-                // Use the already declared apiResponse
-                if (apiResponse.code === 200) {
-                    resolve(apiResponse.data);
-                } else {
-                    console.error(`Business Error ${apiResponse.code}: ${apiResponse.msg}`);
-                    uni.showToast({ title: apiResponse.msg || '请求失败', icon: 'none' });
-                    reject({ message: apiResponse.msg || `Business Error ${apiResponse.code}`, response: res });
-                }
-            },
-            fail: (err) => {
-                console.error(`[Request Fail] ${method} ${url}`, err);
-                uni.showToast({ title: '请求失败，请检查网络', icon: 'none' });
-                reject(err); // Reject with the original error object
-            },
-        });
+          // Use the already declared apiResponse
+        if (apiResponse.code === 200) {
+          resolve(apiResponse.data);
+        } else {
+          console.error(`[Business Error] ${method} ${url} - Code: ${apiResponse.code}, Msg: ${apiResponse.msg}`, apiResponse);
+          uni.showToast({ title: apiResponse.msg || '操作失败，请稍后重试', icon: 'none', duration: 3000 });
+          reject({ message: apiResponse.msg || '操作失败，请稍后重试', code: apiResponse.code, response: res });
+        }
+      },
+      fail: (err) => {
+        console.error(`[REQUEST.TS DEBUG] 网络请求底层失败. Method: ${method}, URL: ${url}, RawError:`, JSON.stringify(err));
+        
+        uni.showToast({ title: '网络请求失败，请检查您的网络连接', icon: 'none', duration: 3000 });
+        reject(err);
+      },
     });
+  });
 };
 
 // Example usage (can be moved to specific api files like src/api/portfolio.ts)
 /*
 import type { GetAllTemplatesResponse } from '../types/api';
 
-export const fetchAllTemplates = () => {
+export const getAllTemplates = () => {
   return request<GetAllTemplatesResponse['data']>({ // Specify the expected data type
     url: '/portfolio/template/all',
     method: 'GET',
   });
 };
 
-fetchAllTemplates()
+getAllTemplates()
   .then(data => {
     console.log('Fetched templates:', data);
     // data is now typed as GetAllTemplatesResponseItem[]
   })
   .catch(error => {
-    console.error('Failed to fetch templates:', error);
+    console.error('Failed to get templates:', error);
   });
 */

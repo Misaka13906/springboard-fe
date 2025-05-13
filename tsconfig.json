@@ -7,7 +7,11 @@
       "@/*": ["./src/*"]
     },
     "lib": ["esnext", "dom"],
-    "types": ["@dcloudio/types", "./src/types/api.d.ts"]
+    "typeRoots": [
+      "./src/types",
+      "./node_modules/@types"
+    ],
+    "types": ["base", "status", "api"] // 显式声明全局命名空间
   },
   "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"]
 }

@@ -8,7 +8,7 @@
         v-for="(tab, index) in tabs"
         :key="index"
         :class="['tab-item', { active: activeTab === index }]"
-        @click="changeTab(index)"
+        @tap="changeTab(index)"
       >
         {{ tab.name }}
       </view>
@@ -26,7 +26,7 @@
         v-for="(template) in currentTemplates"
         :key="template.uid"
         :class="['template-item', { selected: selectedTemplateId === template.uid }]"
-        @click="selectTemplate(template.uid)"
+        @tap="selectTemplate(template.uid)"
       >
         <image class="template-image" :src="template.previewUrl" mode="aspectFill"></image>
         <text class="template-name">{{ template.name }}</text>
@@ -38,7 +38,7 @@
     </view>
 
     <!-- Confirm Button -->
-    <button class="confirm-button" :disabled="!selectedTemplateId || loading" @click="confirmSelection">
+    <button class="confirm-button" :disabled="!selectedTemplateId || loading" @tap="confirmSelection">
       下一步
     </button>
 
@@ -50,13 +50,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { onLoad } from '@dcloudio/uni-app';
-// Correct the import: Use Template instead of GetAllTemplatesResponseItem
-import type { Template } from '../../types/api';
-import { fetchAllTemplates } from '../../api/template';
-import { getPreviewUrl } from '../../api/oss';
+import { getAllTemplates } from '../../api/template';
+import { getSignedPreviewUrl } from '../../api/oss';
 
 // Define an interface that includes the previewUrl, extending the correct base type
-interface TemplateWithPreview extends Template {
+interface TemplateWithPreview extends baseType.Template {
   previewUrl?: string;
 }
 
@@ -95,51 +93,31 @@ const confirmSelection = () => {
   });
 };
 
-const fetchPreviewUrls = async (templates: Template[]): Promise<TemplateWithPreview[]> => {
-  const templatesWithUrls = await Promise.all(
-    templates.map(async (template) => {
-      let previewUrl = '/static/images/template1.png'; // Default placeholder
-      const ossKey = template.pages?.[0]?.oss_key;
-      if (ossKey) {
-        try {
-          previewUrl = await getPreviewUrl(ossKey);
-        } catch (urlError) {
-          console.error(`Failed to get preview URL for template ${template.uid} (key: ${ossKey}):`, urlError);
-          // Keep the default placeholder URL on error
-        }
-      } else {
-        console.warn(`No oss_key found for cover page of template ${template.uid}`);
-      }
-      return { ...template, previewUrl };
-    })
-  );
-  return templatesWithUrls;
-};
-
 onMounted(async () => {
   loading.value = true;
   try {
-    const templatesData = await fetchAllTemplates();
+    const templatesData = await getAllTemplates();
     console.log('Fetched raw templates:', templatesData);
 
     const templatesWithUrls = await Promise.all(
-      templatesData.map(async (template) => {
-        let previewUrl = '/static/images/template1.png'; // Default placeholder
+      templatesData.map(async (template: baseType.Template): Promise<TemplateWithPreview> => {
+        let previewUrl: string = '/static/images/template1.png'; // Default placeholder
+
         // Use the same logic as index.vue to get the oss_key from the first page
-        const ossKey = template.pages?.[0]?.oss_key; // Changed this line
+        const ossKey: string | undefined = template.pages?.[0]?.oss_key; // Changed this line
 
         if (ossKey) {
           try {
-            previewUrl = await getPreviewUrl(ossKey);
-            console.log(`Generated preview URL for ${template.uid}: ${previewUrl}`);
+        previewUrl = await getSignedPreviewUrl(ossKey);
+        console.log(`Generated preview URL for ${template.uid}: ${previewUrl}`);
           } catch (urlError) {
-            console.error(`Failed to get preview URL for template ${template.uid} (key: ${ossKey}):`, urlError);
+        console.error(`Failed to get preview URL for template ${template.uid} (key: ${ossKey}):`, urlError);
           }
         } else {
           // Updated warning message to reflect the key being checked
           console.warn(`No oss_key found for cover page of template ${template.uid}, using default placeholder.`);
         }
-        return { ...template, previewUrl };
+        return { ...template, previewUrl } as TemplateWithPreview;
       })
     );
 
@@ -147,7 +125,7 @@ onMounted(async () => {
     console.log('Processed templates with URLs:', allTemplates.value);
 
   } catch (error) {
-    console.error('Failed to fetch templates or generate URLs:', error);
+    console.error('Failed to get templates or generate URLs:', error);
     uni.showToast({ title: '加载模板失败', icon: 'none' });
   } finally {
     loading.value = false;

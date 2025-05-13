@@ -26,8 +26,8 @@
       </view>
 
       <view class="button-group">
-        <button class="btn login-btn" @click="handleLogin" :loading="loading" :disabled="loading || !username || !password">登录</button>
-        <button class="btn register-btn" @click="handleRegister" :loading="loading" :disabled="loading || !username || !password">注册</button>
+        <button class="btn login-btn" @tap="handleLogin" :loading="loading" :disabled="loading || !username || !password">登录</button>
+        <button class="btn register-btn" @tap="handleRegister" :loading="loading" :disabled="loading || !username || !password">注册</button>
       </view>
 
       <!-- Optional: Add forgot password link -->
@@ -60,6 +60,7 @@ const validateInput = (): boolean => {
 };
 
 const handleLogin = async () => {
+  console.log('开始处理登录操作...');
   if (!validateInput() || loading.value) return;
 
   loading.value = true;
@@ -67,36 +68,38 @@ const handleLogin = async () => {
 
   try {
     const payload = { username: username.value, password: password.value };
+    console.log('登录请求参数:', payload);
     const loginData = await loginApp(payload);
-    console.log('Login successful:', loginData);
+    console.log('登录成功，响应数据:', loginData);
     uni.hideLoading();
     uni.showToast({ title: '登录成功', icon: 'success' });
 
-    // Store username locally
     try {
       uni.setStorageSync('username', username.value);
-      console.log('Username stored in local storage.');
-    } catch (e) {
-      console.error('Failed to store username:', e);
+      console.log('用户名已存储到本地。');
+    } catch (e: any) {
+      console.error('存储用户名到本地失败:', e);
+      uni.showToast({ title: '登录后存储用户名失败', icon: 'none', duration: 2000 });
+      // Non-critical error, proceed with navigation
     }
 
-    // Navigate to the main page after successful login
-    // Replace with your desired destination, e.g., profile or index
     uni.switchTab({
-      url: '/pages/index/index' // Or '/pages/profile/profile'
+      url: '/pages/index/index'
     });
 
   } catch (error: any) {
     loading.value = false;
     uni.hideLoading();
-    console.error('Login failed:', error);
-    uni.showToast({ title: error?.message || '登录失败，请检查用户名或密码', icon: 'none' });
+    console.error('登录操作失败:', error);
+    const displayMessage = error?.data?.message || '登录失败，请稍后重试';
+    uni.showToast({ title: displayMessage, icon: 'none', duration: 3000 });
   } finally {
-      loading.value = false; // Ensure loading is always reset
+      loading.value = false; 
   }
 };
 
 const handleRegister = async () => {
+  console.log('开始处理注册操作...');
   if (!validateInput() || loading.value) return;
 
   loading.value = true;
@@ -104,28 +107,29 @@ const handleRegister = async () => {
 
   try {
     const payload = { username: username.value, password: password.value };
+    console.log('注册请求参数:', payload);
     await registerApp(payload);
-    console.log('Registration successful');
+    console.log('注册成功');
     uni.hideLoading();
     uni.showToast({ title: '注册成功，请登录', icon: 'success' });
-    // Optionally clear password field or automatically log in
-    // password.value = '';
-
-    // Store username locally after registration as well
+    
     try {
       uni.setStorageSync('username', username.value);
-      console.log('Username stored in local storage after registration.');
-    } catch (e) {
-      console.error('Failed to store username after registration:', e);
+      console.log('注册后用户名已存储到本地。');
+    } catch (e: any) {
+      console.error('注册后存储用户名到本地失败:', e);
+      uni.showToast({ title: '注册后存储用户名失败', icon: 'none', duration: 2000 });
+       // Non-critical error
     }
 
   } catch (error: any) {
     loading.value = false;
     uni.hideLoading();
-    console.error('Registration failed:', error);
-    uni.showToast({ title: error?.message || '注册失败，用户名可能已被占用', icon: 'none' });
+    console.error('注册操作失败:', error);
+    const displayMessage = error?.data?.message || '注册失败，请稍后重试';
+    uni.showToast({ title: displayMessage, icon: 'none', duration: 3000 });
   } finally {
-      loading.value = false; // Ensure loading is always reset
+      loading.value = false; 
   }
 };
 </script>

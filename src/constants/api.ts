@@ -1,4 +1,4 @@
-// src/constants/api.ts
+// src/constants/apiType.ts
 
 /**
  * API 业务错误码常量 (Based on backend code.md)

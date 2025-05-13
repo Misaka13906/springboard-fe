@@ -18,7 +18,7 @@
         <input class="input-field" type="text" v-model="bleedValue" placeholder="例如: 3mm" />
       </view>
 
-      <button class="confirm-button" @click="confirmSettings">确定></button>
+      <button class="confirm-button" @tap="confirmSettings">确定></button>
     </view>
   </view>
 </template>
@@ -74,6 +74,7 @@ const confirmSettings = () => {
 }
 
 .setting-item {
+  height: fit-content;
   margin-bottom: 40rpx;
 }
 

@@ -1,24 +1,25 @@
 <template>
-  <!-- Removed uni-popup wrapper -->
-  <view class="tips-popup-content">
-    <text class="tips-title">{{ currentTipPage.title }}</text>
-    <view class="tips-body">
-      <view v-for="(paragraph, index) in currentTipPage.paragraphs" :key="index">
-        <text>{{ paragraph }}</text>
+  <view class="tips-popup-wrapper">
+    <view class="tips-popup-content">
+      <text class="tips-title">{{ currentTipPage.title }}</text>
+      <view class="tips-body">
+        <view v-for="(paragraph, index) in currentTipPage.paragraphs" :key="index">
+          <text>{{ paragraph }}</text>
+        </view>
+      </view>
+      <view class="tips-footer">
+        <text class="pagination-arrow" @tap="prevPage">{{ '<' }}</text>
+        <text class="pagination-text">{{ currentPage }} / {{ totalPages }}</text>
+        <text class="pagination-arrow" @tap="nextPage">{{ '>' }}</text>
       </view>
     </view>
-    <view class="tips-footer">
-      <text class="pagination-arrow" @click="prevPage">{{ '<' }}</text>
-      <text class="pagination-text">{{ currentPage }} / {{ totalPages }}</text>
-      <text class="pagination-arrow" @click="nextPage">{{ '>' }}</text>
-    </view>
-  </view>
     <view class="close-button-wrapper">
       <!-- Call the internal closePopup method -->
-      <view class="close-button" @click="closePopup">
+      <view class="close-button" @tap="closePopup">
         <!-- Removed the text element -->
       </view>
     </view>
+  </view>
 </template>
 
 <script setup lang="ts">

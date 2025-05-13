@@ -12,11 +12,11 @@
         <!-- Dynamic Group Items -->
         <view v-for="(group, index) in groups" :key="group.id" class="group-item editable-item">
           <input class="group-input" v-model="group.name" placeholder="分组名称" />
-          <text class="delete-icon" @click="removeGroup(index)">×</text>
+          <text class="delete-icon" @tap="removeGroup(index)">×</text>
         </view>
 
         <!-- Add Group Button -->
-        <view class="group-item add-item" @click="addGroup">
+        <view class="group-item add-item" @tap="addGroup">
           <text class="add-icon">+</text>
           <text>添加分组</text>
         </view>
@@ -29,7 +29,7 @@
     </view>
 
     <!-- Confirm Button -->
-    <button class="confirm-button" @click="confirmGroups">
+    <button class="confirm-button" @tap="confirmGroups">
       确定 <text class="arrow">&gt;</text>
     </button>
   </view>
@@ -55,7 +55,6 @@ onLoad((options) => {
   if (options && options.templateId) {
     templateId.value = options.templateId;
     console.log('Group management for template ID:', templateId.value);
-    // TODO: Fetch existing groups for this template/portfolio if applicable
   } else {
     console.error('Template ID not provided to group management page.');
     uni.showToast({ title: '无法加载分组信息', icon: 'none' });
@@ -81,11 +80,11 @@ const confirmGroups = () => {
   console.log('Confirming groups:', groups.value);
   console.log('Navigating to edit page...');
 
-  // TODO: Save groups (e.g., via API call or pass to next page)
+  // Save groups (pass to next page)
   // Structure might need adjustment based on backend requirements (e.g., include order)
   const groupData = groups.value.map((group, index) => ({
       name: group.name,
-      order: index + 1 // Assuming order is based on current array position
+      order: index + 1 // order is based on current array position
   }));
   console.log('Group data to save/pass:', groupData);
 
