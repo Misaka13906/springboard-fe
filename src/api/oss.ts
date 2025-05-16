@@ -81,6 +81,7 @@ export const uploadWorkFile = async (
   const sys = uni.getSystemInfoSync();
   console.log('[uploadWorkFile] platform:', sys.platform, 'filePath:', filePath);
   if (
+    sys.platform === 'devtools' ||
     sys.platform === 'mp-weixin' ||
     sys.platform === 'mp-alipay' ||
     sys.platform === 'mp-baidu' ||

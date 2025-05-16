@@ -222,6 +222,8 @@ declare namespace statusType {
 
   // 模板页面类型
   type TemplatePage = baseType.Page & {
+    containerWidth: number;
+    containerHeight: number;
     order: number; // 在模板中的顺序
     type: 'cover' | 'resume' | 'content' | 'end'; // 页面类型
   } & OssImage; // 继承图片类型

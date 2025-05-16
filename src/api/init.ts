@@ -2,6 +2,7 @@ import {parseOrderFromPreviewKey, toStatusPage, toStatusTemplate} from "../utils
 import { getTemplateDetails } from '@/api/template';
 import { getSignedPreviewUrl } from '@/api/oss';
 import { parseSize } from "../utils/types";
+import { parseSvgDimensions } from '@/utils/common';
 
 // 获取模板详细数据并返回 statusType.Template（含页面 order/type/url 字段）
 export async function getTemplateDetailWithUrl(templateId: string): Promise<statusType.Template> {
@@ -18,14 +19,18 @@ export async function getTemplateDetailWithUrl(templateId: string): Promise<stat
       else type = 'resume';
       const previewUrl = p.preview_oss_key ? await getSignedPreviewUrl(p.preview_oss_key) : '';
       const nowTime = Date.now();
-      // 已有url，根据get url 的响应获取宽高
-      let dimensions: {width: number, height: number};
+      // 已有url，根据 get url 的响应获取宽高
       let width: string = "";
       let height: string = "";
       try {
-        dimensions = await getImageDimensions(previewUrl);
-        width = String(dimensions.width)
-        height = String(dimensions.height)
+        const svgText = await getSvgContent(previewUrl);
+        const svgDimensions = parseSvgDimensions(svgText);
+        const dimensions = {
+          width: svgDimensions.width !== null ? svgDimensions.width : 0,
+          height: svgDimensions.height !== null ? svgDimensions.height : 0
+        };
+        width = svgDimensions.width !== null ? String(svgDimensions.width) : "";
+        height = svgDimensions.height !== null ? String(svgDimensions.height) : "";
         console.log('图片尺寸：', dimensions.width, 'x', dimensions.height);
       } catch (error) {
         console.error('获取图片尺寸失败：', error);
@@ -37,6 +42,8 @@ export async function getTemplateDetailWithUrl(templateId: string): Promise<stat
         type,
         width,
         height,
+        containerWidth: parseInt(parseSize(p.size).width),
+        containerHeight: parseInt(parseSize(p.size).height),
         url: previewUrl,
         expireTime: String(nowTime + 29 * 60 * 1000),
       };
@@ -49,36 +56,45 @@ export async function getTemplateDetailWithUrl(templateId: string): Promise<stat
   };
 }
 
-const getImageDimensions = (url: string): Promise<{ width: number, height: number}> => {
-  const isH5 = process.env.UNI_PLATFORM === 'h5';
-  const isMP = process.env.UNI_PLATFORM?.startsWith('mp-');
+async function getSvgContent(url: string): Promise<string> {
+  console.log('[getSvgContent] Requesting URL (raw):', url);
+  try {
+    const requestOptions = {
+      url,
+      method: 'GET' as const,
+      responseType: 'text' as const,
+      dataType: 'text' as const, 
+      header: {
+        // Minimal headers, let uni.request and the environment handle defaults
+        // We are testing if adding x-oss-content-sha256 was problematic
+        // or if other default headers from uni-app were interfering.
+      },
+    };
+    console.log('[getSvgContent] Request options (minimal headers):', JSON.stringify(requestOptions));
 
-  return new Promise((resolve, reject) => {
-    if (isH5) {
-      // H5 环境使用浏览器方案
-      const img = new Image();
-      img.crossOrigin = "Anonymous";
-      img.onload = () => resolve({ 
-        width: img.naturalWidth, 
-        height: img.naturalHeight 
-      });
-      img.onerror = reject;
-      img.src = url;
-    } else if (isMP) {
-      // 小程序环境使用官方 API
-      uni.getImageInfo({
-        src: url,
-        success: (res) => resolve({
-          width: res.width,
-          height: res.height
-        }),
-        fail: reject
-      });
-    } else {
-      // 其他环境降级处理
+    const res = await uni.request(requestOptions);
+
+    console.log('[getSvgContent] Response status:', res.statusCode);
+    console.log('[getSvgContent] Response headers:', JSON.stringify(res.header));
+
+    if (res.statusCode !== 200) {
+      let errorData = res.data;
+      if (typeof errorData === 'object') {
+        errorData = JSON.stringify(errorData);
       }
-  });
-};
+      if (typeof errorData === 'string' && errorData.length > 500) { // Limit log size
+        errorData = errorData.substring(0, 500) + '...';
+      }
+      console.error('[getSvgContent] Error response data:', errorData);
+      throw new Error(`获取 svg 请求错误，状态码: ${res.statusCode}`);
+    }
+    
+    return res.data as string;
+  } catch (error) {
+    console.error('获取SVG失败:', error);
+    return '';
+  }
+}
 
 export function initProjectsFromStatusTemplate(
   template: statusType.Template,

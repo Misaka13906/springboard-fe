@@ -28,22 +28,63 @@ const props = defineProps({
   height: { type: String, default: '100px' },
 });
 const portfolioStore = usePortfolioStore();
-const project = computed(() => portfolioStore.portfolio?.projects[props.projectIndex] || {} as statusType.Project);
-const page = computed(() => project.value.pages?.[props.pageIndex] || {});
-const works = computed(() => project.value.works?.filter((w: statusType.Work) => w.page_num === page.value.pageNum) || []);
-const texts = computed(() => project.value.texts?.filter((t: statusType.Text) => t.page_num === page.value.pageNum) || []);
-const hidden = computed(() => project.value.hidden);
-// const templatePage = computed(() => project.value.template?.pages?.find((tp: any) => tp.order === page.value.order));
+const project = computed(() => {
+  if (portfolioStore.portfolio && 
+      props.projectIndex >= 0 && 
+      props.projectIndex < portfolioStore.portfolio.projects.length) {
+    return portfolioStore.portfolio.projects[props.projectIndex] || {} as statusType.Project;
+  }
+  return {} as statusType.Project;
+});
+const page = computed(() => {
+  const currentProject = project.value;
+  if (currentProject && currentProject.pages && 
+      props.pageIndex >= 0 && 
+      props.pageIndex < currentProject.pages.length) {
+    return currentProject.pages[props.pageIndex] || {} as statusType.PortfolioPage;
+  }
+  return {} as statusType.PortfolioPage;
+});
+const works = computed(() => {
+  const currentProject: statusType.Project = project.value;
+  const currentPage: statusType.PortfolioPage = page.value;
+  if (currentProject && currentProject.works && currentPage && currentPage.pageNum !== undefined) {
+    return currentProject.works.filter((w: statusType.Work) => w.page_num === currentPage.pageNum) || [];
+  }
+  return [];
+});
+const texts = computed(() => {
+  const currentProject: statusType.Project = project.value;
+  const currentPage: statusType.PortfolioPage = page.value;
+  if (currentProject && currentProject.texts && currentPage && currentPage.pageNum !== undefined) {
+    return currentProject.texts.filter((t: statusType.Text) => t.page_num === currentPage.pageNum) || [];
+  }
+  return [];
+});
+const hidden = computed(() => project.value?.hidden || false); // Provide a default for hidden
 const thumbnailStyle = computed(() => `width:${props.width};height:${props.height};`);
 const previewUrl = computed(() => page.value?.bkgUrl || '/static/images/template1.png');
 function getWorkStyle(work: any) {
-  return `position:absolute;top:${work.marginTop || work.margin_top}px;left:${work.marginLeft || work.margin_left}px;width:60rpx;height:60rpx;object-fit:cover;transform:scale(${work.scale || 1});`;
+  if (!work) return ''; // Handle undefined work object
+  const top = work.marginTop !== undefined ? work.marginTop : work.margin_top;
+  const left = work.marginLeft !== undefined ? work.marginLeft : work.margin_left;
+  const scale = work.scale;
+  // Ensure numeric values and provide defaults
+  const numTop = parseFloat(top as string) || 0;
+  const numLeft = parseFloat(left as string) || 0;
+  const numScale = parseFloat(scale as string) || 1;
+  return `position:absolute;top:${numTop}px;left:${numLeft}px;width:60rpx;height:60rpx;object-fit:cover;transform:scale(${numScale});`;
 }
 function getTextStyle(text: any) {
-  const top = text.marginTop !== undefined ? text.marginTop : text.margin_top || 0;
-  const left = text.marginLeft !== undefined ? text.marginLeft : text.margin_left || 0;
-  const fontSize = text.fontSize !== undefined ? text.fontSize : text.font_size || 14;
-  return `position:absolute;top:${top}px;left:${left}px;font-size:${fontSize}px;max-width:80rpx;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;`;
+  if (!text) return ''; // Handle undefined text object
+  const top = text.marginTop !== undefined ? text.marginTop : text.margin_top;
+  const left = text.marginLeft !== undefined ? text.marginLeft : text.margin_left;
+  const fontSize = text.fontSize !== undefined ? text.fontSize : text.font_size;
+  // Ensure numeric values and provide defaults
+  const numTop = parseFloat(top as string) || 0;
+  const numLeft = parseFloat(left as string) || 0;
+  const numFontSize = parseFloat(fontSize as string) || 14;
+  return `position:absolute;top:${numTop}px;left:${numLeft}px;font-size:${numFontSize}px;max-width:80rpx;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;`;
 }
 </script>
 <style scoped>

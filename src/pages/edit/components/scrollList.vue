@@ -170,7 +170,26 @@ function onRemoveProject(idx: number) {
   });
 }
 function onEditProjectName(idx: number) { editProjectIndex.value = idx; editProjectValue.value = projects.value[idx].name; }
-function onEditProjectNameBlur(idx: number) { portfolioStore.editProjectName({ index: idx, name: editProjectValue.value }); editProjectIndex.value = -1; }
+function onEditProjectNameBlur(idx: number) {
+  const originalName = projects.value[idx]?.name;
+  const newName = editProjectValue.value.trim();
+
+  if (newName) { // If new name is not empty after trimming
+    if (newName !== originalName) { // And it's different from original
+      portfolioStore.editProjectName({ index: idx, name: newName });
+    }
+    // If newName is the same as originalName, no store call needed.
+    editProjectIndex.value = -1; // Finish editing
+  } else {
+    // New name is empty after trim
+    uni.showToast({
+      title: '项目名称不能为空',
+      icon: 'none'
+    });
+    // Don't save, and finish editing. The original name will remain displayed.
+    editProjectIndex.value = -1;
+  }
+}
 function onToggleProjectHide(idx: number) { portfolioStore.toggleProjectHide(idx); }
 
 // 拖动排序相关
@@ -463,3 +482,4 @@ function onAddPage() { portfolioStore.addPage(); }
   font-weight: bold;
 }
 </style>
+``` 

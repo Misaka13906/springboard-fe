@@ -235,7 +235,7 @@ export const usePortfolioStore = defineStore('portfolio', {
       if (!this.portfolio) return;
       const project = this.portfolio.projects[this.currentProjectIndex];
       const page = project.pages[this.currentPageNum];
-      if (!project || !page || project.readonly) return;
+      if (!project || !page) return;
       const newText = {
         uid: `text_${Date.now()}_${Math.random().toString(36).slice(2,8)}`,
         project_uid: project.uid,
@@ -254,7 +254,7 @@ export const usePortfolioStore = defineStore('portfolio', {
       if (!this.portfolio) return;
       const project = this.portfolio.projects[this.currentProjectIndex];
       const page = project.pages[this.currentPageNum];
-      if (!project || !page || project.readonly) return;
+      if (!project || !page) return;
       // 选择图片
       const chooseRes = await new Promise<UniApp.ChooseImageSuccessCallbackResult>((resolve, reject) => {
         uni.chooseImage({
