@@ -195,15 +195,31 @@ export const usePortfolioStore = defineStore('portfolio', {
       if (!this.portfolio) return;
       const project = this.portfolio.projects[this.currentProjectIndex];
       if (!project || project.readonly) return;
-      const newPageNum = (project.pages?.length || 0) + 1;
+
+      let newPageNum = 1;
+      if (project.pages && project.pages.length > 0) {
+        const existingPageNums = project.pages.map(p => p.pageNum).filter(num => typeof num === 'number' && !isNaN(num));
+        if (existingPageNums.length > 0) {
+          newPageNum = Math.max(0, ...existingPageNums) + 1;
+        } else {
+          // If no valid numeric pageNums exist, or array was empty of numbers,
+          // default to current length + 1 (which will be 1 if pages was empty).
+          newPageNum = project.pages.length + 1;
+        }
+      }
+      // Ensure newPageNum is at least 1, especially if pages array was empty.
+      if (newPageNum <= 0) newPageNum = 1;
+
+      const bkgUrl = this.portfolio.template?.contentPage?.url || '';
+
       project.pages.push({
         pageNum: newPageNum,
         order: newPageNum,
         type: 'content',
         projectId: project.uid,
-        bkgUrl: this.portfolio.template.contentPage.url,
+        bkgUrl: bkgUrl,
       });
-      this.currentPageNum = project.pages.length - 1;
+      this.currentPageNum = project.pages.length - 1; // Select the newly added page
       this.savePortfolio();
     },
     removePage(index: number) {

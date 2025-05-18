@@ -83,6 +83,7 @@ export const uploadWorkFile = async (
   if (
     sys.platform === 'devtools' ||
     sys.platform === 'mp-weixin' ||
+    sys.platform === 'Android' ||
     sys.platform === 'mp-alipay' ||
     sys.platform === 'mp-baidu' ||
     sys.platform === 'mp-qq' ||

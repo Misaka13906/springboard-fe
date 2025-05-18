@@ -62,6 +62,7 @@
 import { ref, onMounted } from 'vue';
 import Tabbar from '../../components/tabbar/tabbar.vue';
 import { getMyPortfolios, getHistoryTemplates } from '../../api/portfolio';
+import { usePortfolioStore } from '../../store/portfolio'; // Import the store
 
 const portfolioItems = ref<apiType.GetMyPortfolioResponseItem[]>([]);
 const historyItems = ref<apiType.GetHistoryTemplatesResponseItem[]>([]);
@@ -71,23 +72,23 @@ const username = ref('Loading...'); // Ref for username
 const uid = ref('loading...'); // Ref for uid (still needs API)
 
 onMounted(async () => {
-  // Load username from storage
+  const portfolioStore = usePortfolioStore(); // Initialize the store
+
+  // Load username from storage or set based on login type
   try {
-    const storedUsername = uni.getStorageSync('username');
-    if (storedUsername) {
-      username.value = storedUsername;
+    const loginType = uni.getStorageSync('loginType');
+    if (loginType === 'weixin') {
+      username.value = '微信用户';
     } else {
-      username.value = '游客'; // Default if not found
+      const storedUsername = uni.getStorageSync('username');
+      if (storedUsername) {
+        username.value = storedUsername;
+      } else {
+        username.value = '游客'; // Default if not found
+      }
     }
     // TODO: Fetch actual UID from a user profile API endpoint
-    // For now, we'll leave uid as 'loading...' or a placeholder
-    // uid.value = getedUid;
-  } catch (e) {
-    console.error('Failed to load username from storage:', e);
-    username.value = 'Error';
-  }
 
-  try {
     // Fetch data in parallel
     loadingPortfolios.value = true;
     loadingHistory.value = true;
@@ -100,6 +101,25 @@ onMounted(async () => {
     historyItems.value = historyData;
     console.log('Fetched portfolios:', portfolioItems.value);
     console.log('Fetched history templates:', historyItems.value);
+
+    // Re-check login type after portfolio data is fetched
+    const currentLoginType = uni.getStorageSync('loginType');
+    if (currentLoginType === 'weixin') {
+      username.value = '微信用户';
+    } else {
+      // Fallback to stored username if not WeChat login
+      const storedUsername = uni.getStorageSync('username');
+      if (storedUsername) {
+        // Only set if not already '微信用户'
+        if (username.value !== '微信用户') {
+            username.value = storedUsername;
+        }
+      } else {
+        if (username.value !== '微信用户') {
+            username.value = '游客';
+        }
+      }
+    }
 
   } catch (error) {
     console.error('Failed to get profile data or login:', error);

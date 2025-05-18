@@ -46,7 +46,7 @@ export const loginApp = (payload: apiType.AppLoginRequest): Promise<apiType.Logi
       // Explicitly remove Authorization header for login request
       header: { 'Authorization': null }
     })
-      .then(data => handleLoginResponse(data, resolve, reject))
+      .then(data => handleLoginResponse(data, resolve, reject, 'app')) // Pass 'app'
       .catch(error => {
         console.error('App登录接口请求失败:', error);
         uni.showToast({ title: 'App登录失败，请稍后重试', icon: 'none', duration: 3000 });
@@ -102,7 +102,7 @@ export const loginInWeixin = (): Promise<apiType.LoginResponseData> => {
           method: 'POST',
           header: { 'Authorization': null } // Ensure no old token is sent for login
         })
-          .then(data => handleLoginResponse(data, resolve, reject))
+          .then(data => handleLoginResponse(data, resolve, reject, 'weixin')) // Pass 'weixin'
           .catch(error => {
             console.error('后端用code登录接口请求失败:', error);
             uni.showToast({ title: '微信登录请求后端失败，请稍后重试', icon: 'none', duration: 3000 });
@@ -119,18 +119,32 @@ export const loginInWeixin = (): Promise<apiType.LoginResponseData> => {
 };
 
 // Helper function to process login response and store tokens
-const handleLoginResponse = (data: apiType.LoginResponseData, resolve: (value: apiType.LoginResponseData | PromiseLike<apiType.LoginResponseData>) => void, reject: (reason?: any) => void) => {
+const handleLoginResponse = (
+  data: apiType.LoginResponseData,
+  resolve: (value: apiType.LoginResponseData | PromiseLike<apiType.LoginResponseData>) => void,
+  reject: (reason?: any) => void,
+  loginType?: 'weixin' | 'app' // Added parameter
+) => {
   console.log('后端登录响应数据:', data);
   if (data && data.access_token && data.refresh_token) {
     try {
       uni.setStorageSync('access_token', data.access_token);
-      uni.setStorageSync('refresh_token', data.refresh_token); // Store refresh token
+      uni.setStorageSync('refresh_token', data.refresh_token);
       console.log('访问令牌和刷新令牌已成功存储.');
+
+      if (loginType) {
+        uni.setStorageSync('loginType', loginType);
+        console.log(`Login type set to ${loginType}.`);
+      } else {
+        // Clear loginType if not provided to prevent stale state
+        uni.removeStorageSync('loginType');
+        console.log('Login type cleared as it was not provided.');
+      }
       resolve(data);
     } catch (e: any) {
-      console.error('存储令牌失败:', e);
-      uni.showToast({ title: '登录成功，但存储凭证失败', icon: 'none', duration: 3000 });
-      reject(new Error(`存储令牌失败: ${e?.errMsg || '本地存储失败'}`));
+      console.error('存储令牌或登录类型失败:', e);
+      uni.showToast({ title: '登录成功，但处理本地存储失败', icon: 'none', duration: 3000 });
+      reject(new Error(`存储令牌或登录类型失败: ${e?.errMsg || '本地存储失败'}`));
     }
   } else {
     console.error('登录响应无效或缺少令牌:', data);
