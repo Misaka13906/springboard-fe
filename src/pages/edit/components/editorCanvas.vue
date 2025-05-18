@@ -32,7 +32,7 @@
       
       <img
         v-for="work in pageWorks"
-        :key="work.id"
+        :key="work.uid"
         :src="work.url || '/static/images/template1.png'"
         class="editor__work"
         :style="getWorkStyle(work)"
@@ -43,7 +43,7 @@
       />
       <view
         v-for="text in pageTexts"
-        :key="text.id"
+        :key="text.uid"
         class="editor__text"
         :style="getTextStyle(text)"
         @mousedown="onDragStart(text, $event, 'text')"
@@ -57,7 +57,10 @@
     <view v-if="selectedElement" class="editor__settings">
       <view class="editor__settings-container">
         <view class="editor__settings-title">
-          {{ selectedType === 'work' ? '图片设置' : '文本设置' }}
+          <text>{{ selectedType === 'work' ? '图片设置' : '文本设置' }}</text>
+          <button class="editor__close-btn" @tap="onCloseSettings">
+            <img src="/static/icons/delete.svg" class="editor__close-icon" alt="关闭" />
+          </button>
         </view>
         
         <view class="editor__settings-form">
@@ -210,7 +213,7 @@ const selectedElement = computed({
   null as statusType.Work | statusType.Text | null,
   set: (el: statusType.Work | statusType.Text | null) => {
     if (el) {
-      portfolioStore.selectedElementUid = el.uid;
+      portfolioStore.selectedElementUid = el.uid as string;
     } else {
       portfolioStore.selectedElementUid = null;
     }
@@ -324,6 +327,10 @@ function sanitizeTextInput() {
   }
 }
 
+function onCloseSettings() {
+  selectedElement.value = null;
+}
+
 const previewUrl = ref('');
 
 function calculateAndSetCanvasHeight() {
@@ -349,6 +356,20 @@ function calculateAndSetCanvasHeight() {
     if (typeof canvasWidth === 'undefined') return;
 
     let aspectRatio;
+
+    // Prioritize bkg_size from templatePage for aspect ratio
+    if (currentTemplatePage && currentTemplatePage.bkg_size && typeof currentTemplatePage.bkg_size === 'string') {
+      const parts = currentTemplatePage.bkg_size.split('x');
+      if (parts.length === 2) {
+        const bkgWidth = parseFloat(parts[0]);
+        const bkgHeight = parseFloat(parts[1]);
+        if (bkgWidth > 0 && bkgHeight > 0) {
+          aspectRatio = bkgHeight / bkgWidth;
+          canvasDynamicHeight.value = `${Math.round(canvasWidth * aspectRatio)}px`;
+          return; // Aspect ratio determined from bkg_size
+        }
+      }
+    }
 
     if (currentTemplatePage && currentTemplatePage.width && currentTemplatePage.height) {
       const tpWidth = parseFloat(currentTemplatePage.width);
@@ -451,7 +472,7 @@ function getBleedLineStyle(bleed: any) {
   return `left:${x}px;top:${y}px;width:${width}px;height:${height}px;`;
 }
 function onDeleteElement() {
-  if (selectedElement.value) portfolioStore.deleteElement(selectedElement.value.uid);
+  if (selectedElement.value) portfolioStore.deleteElement(selectedElement.value.uid as string);
   selectedElement.value = null;
 }
 function onToggleBleed() {
@@ -696,11 +717,37 @@ function handleCanvasTouchEnd(e: TouchEvent) {
 }
 
 .editor__settings-title { 
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 28rpx; 
   font-weight: bold; 
   color: #333;
   padding-bottom: 8rpx;
   border-bottom: 1rpx solid #eee;
+}
+
+.editor__close-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40rpx; /* Adjust size as needed */
+  height: 40rpx; /* Adjust size as needed */
+}
+
+.editor__close-icon {
+  width: 28rpx; /* Adjust icon size as needed */
+  height: 28rpx; /* Adjust icon size as needed */
+  filter: grayscale(1) brightness(0.5); /* Make it look less like a delete icon */
+}
+
+.editor__close-btn:hover .editor__close-icon {
+  filter: grayscale(0) brightness(0.8); /* Optional: change color on hover */
 }
 
 .editor__settings-form { 

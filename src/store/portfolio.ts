@@ -32,8 +32,10 @@ export const usePortfolioStore = defineStore('portfolio', {
               uid: p.uid,
               name: p.name,
               order: p.order,
+              portfolio_uid: this.portfolio?.uid as string,
               works: p.works.map(w => ({
                 uid: w.uid,
+                project_uid: w.project_uid,
                 oss_key: w.oss_key,
                 size: w.size,
                 margin_top: w.margin_top,
@@ -43,14 +45,15 @@ export const usePortfolioStore = defineStore('portfolio', {
               })),
               texts: p.texts.map(t => ({
                 uid: t.uid,
+                project_uid: t.project_uid,
                 content: t.content,
                 font_size: t.font_size,
+                font_color: t.font_color,
                 size: t.size,
                 margin_top: t.margin_top,
                 margin_left: t.margin_left,
                 page_num: t.page_num,
               })),
-              // pages: p.pages, // Add missing property - this is likely intentionally omitted for saving as pages are derived
             })),
           };
           const response = await savePortfolioApi(payload);
@@ -260,6 +263,7 @@ export const usePortfolioStore = defineStore('portfolio', {
         margin_top: "40",
         margin_left: "40",
         font_size: "24",
+        font_color: "000000",
         size: "24",
       };
       if (!project.texts) project.texts = [];

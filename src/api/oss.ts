@@ -202,11 +202,19 @@ export const uploadWorkFile = async (
         if (res.statusCode === 200) {
           resolve();
         } else {
+          uni.showToast({
+            title: '上传失败，请稍后重试',
+            icon: 'none'
+          });
           reject(new Error('上传失败，状态码：' + res.statusCode));
         }
       },
       fail: (err) => {
         console.error('[uploadWorkFile] uni.request PUT fail', err);
+        uni.showToast({
+          title: '上传失败，请检查网络连接',
+          icon: 'none'
+        });
         reject(err);
       }
     });

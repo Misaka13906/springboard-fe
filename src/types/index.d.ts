@@ -21,8 +21,7 @@ declare namespace baseType {
    * Matches Go: data.Work
    */
   interface Work {
-    id?: number;
-    uid: string;
+    uid?: string;
     project_uid: string;
     oss_key: string;
     size: string; // Format: "axb", e.g., "1920x1080"
@@ -39,11 +38,11 @@ declare namespace baseType {
    * Matches Go: data.Text
    */
   interface Text {
-    id?: number;
     uid: string;
     project_uid: string;
     content: string;
     font_size: string;
+    font_color: string;
     size: string; // Format: "axb"
     margin_top: string;
     margin_left: string;
@@ -55,7 +54,6 @@ declare namespace baseType {
    * Matches Go: data.Page
    */
   interface Page {
-    id?: number;
     uid: string;
     template_uid: string;
     oss_key: string;
@@ -64,6 +62,7 @@ declare namespace baseType {
     margin_top: string;
     margin_left: string;
     size: string; // Format: "axb"
+    bkg_size: string;
     is_content_page: boolean;
   }
 
@@ -73,7 +72,6 @@ declare namespace baseType {
    * Matches Go: data.Project
    */
   interface Project {
-    id?: number;
     uid: string;
     portfolio_uid: string;
     name: string;
@@ -89,7 +87,6 @@ declare namespace baseType {
    * Matches Go: data.Template
    */
   interface Template {
-    id?: number;
     uid: string;
     name: string;
     font_oss_key: string;
@@ -102,7 +99,6 @@ declare namespace baseType {
    * Matches Go: data.Portfolio
    */
   interface Portfolio {
-    id?: number;
     uid: string;
     openid: string;
     title: string;
@@ -131,13 +127,11 @@ declare namespace apiType {
     uid: string; // Portfolio UID. Empty string for first save.
     title: string;
     template_uid: string;
-    projects: Omit<baseType.Project, 'ID' | 'CreatedAt' | 'UpdatedAt' | 'portfolio_uid' | 'works'> & {
-      works: Omit<baseType.Work, 'ID' | 'CreatedAt' | 'UpdatedAt' | 'project_uid'>[];
-    }[];
+    projects: baseType.Project[];
   }
 
   interface SavePortfolioResponseData {
-    projects: baseType.Project[]; // Includes backend-generated fields like ID, UID, CreatedAt, etc.
+    projects: baseType.Project[]; // Includes backend-generated fields like UID, CreatedAt, etc.
     uid: string; // The portfolio UID (new or existing)
   }
   type SavePortfolioResponse = ApiResult<SavePortfolioResponseData>;
@@ -191,7 +185,7 @@ declare namespace apiType {
 
   interface LoginResponseData {
     access_token: string;
-    refresh_token: string; // Added refresh token
+    refresh_token: string;
   }
   type LoginResponse = ApiResult<LoginResponseData>;
 

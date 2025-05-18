@@ -3,14 +3,14 @@
     <img :src="previewUrl" class="page-thumbnail__img" />
     <img
       v-for="work in works"
-      :key="work.id"
+      :key="work.uid"
       :src="work.url || '/static/images/template1.png'"
       class="page-thumbnail__work"
       :style="getWorkStyle(work)"
     />
     <view
       v-for="text in texts"
-      :key="text.id"
+      :key="text.uid"
       class="page-thumbnail__text"
       :style="getTextStyle(text)"
     >

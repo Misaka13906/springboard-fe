@@ -2,7 +2,6 @@ import {parseOrderFromPreviewKey, toStatusPage, toStatusTemplate} from "../utils
 import { getTemplateDetails } from '@/api/template';
 import { getSignedPreviewUrl } from '@/api/oss';
 import { parseSize } from "../utils/types";
-import { parseSvgDimensions } from '@/utils/common';
 
 // 获取模板详细数据并返回 statusType.Template（含页面 order/type/url 字段）
 export async function getTemplateDetailWithUrl(templateId: string): Promise<statusType.Template> {
@@ -19,21 +18,17 @@ export async function getTemplateDetailWithUrl(templateId: string): Promise<stat
       else type = 'resume';
       const previewUrl = p.preview_oss_key ? await getSignedPreviewUrl(p.preview_oss_key) : '';
       const nowTime = Date.now();
-      // 已有url，根据 get url 的响应获取宽高
+      
       let width: string = "";
       let height: string = "";
-      try {
-        const svgText = await getSvgContent(previewUrl);
-        const svgDimensions = parseSvgDimensions(svgText);
-        const dimensions = {
-          width: svgDimensions.width !== null ? svgDimensions.width : 0,
-          height: svgDimensions.height !== null ? svgDimensions.height : 0
-        };
-        width = svgDimensions.width !== null ? String(svgDimensions.width) : "";
-        height = svgDimensions.height !== null ? String(svgDimensions.height) : "";
-        console.log('图片尺寸：', dimensions.width, 'x', dimensions.height);
-      } catch (error) {
-        console.error('获取图片尺寸失败：', error);
+
+      if (p.bkg_size && typeof p.bkg_size === 'string') {
+        const parsedBkgSize = parseSize(p.bkg_size);
+        width = parsedBkgSize.width || "";
+        height = parsedBkgSize.height || "";
+        console.log('[getTemplateDetailWithUrl] Page dimensions from bkg_size:', width, 'x', height, 'for preview_oss_key:', p.preview_oss_key);
+      } else {
+        console.warn(`[getTemplateDetailWithUrl] bkg_size is missing or not a string for page with preview_oss_key: ${p.preview_oss_key}. Width and height will be empty.`);
       }
 
       return {
@@ -54,46 +49,6 @@ export async function getTemplateDetailWithUrl(templateId: string): Promise<stat
     pages,
     contentPage: pages.find((p: baseType.Page) => p.is_content_page) || {} as statusType.TemplatePage,
   };
-}
-
-async function getSvgContent(url: string): Promise<string> {
-  console.log('[getSvgContent] Requesting URL (raw):', url);
-  try {
-    const requestOptions = {
-      url,
-      method: 'GET' as const,
-      responseType: 'text' as const,
-      dataType: 'text' as const, 
-      header: {
-        // Minimal headers, let uni.request and the environment handle defaults
-        // We are testing if adding x-oss-content-sha256 was problematic
-        // or if other default headers from uni-app were interfering.
-      },
-    };
-    console.log('[getSvgContent] Request options (minimal headers):', JSON.stringify(requestOptions));
-
-    const res = await uni.request(requestOptions);
-
-    console.log('[getSvgContent] Response status:', res.statusCode);
-    console.log('[getSvgContent] Response headers:', JSON.stringify(res.header));
-
-    if (res.statusCode !== 200) {
-      let errorData = res.data;
-      if (typeof errorData === 'object') {
-        errorData = JSON.stringify(errorData);
-      }
-      if (typeof errorData === 'string' && errorData.length > 500) { // Limit log size
-        errorData = errorData.substring(0, 500) + '...';
-      }
-      console.error('[getSvgContent] Error response data:', errorData);
-      throw new Error(`获取 svg 请求错误，状态码: ${res.statusCode}`);
-    }
-    
-    return res.data as string;
-  } catch (error) {
-    console.error('获取SVG失败:', error);
-    return '';
-  }
 }
 
 export function initProjectsFromStatusTemplate(
